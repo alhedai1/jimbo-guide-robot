@@ -38,7 +38,7 @@
   <!-- Left wheel -->
   <link name="left_wheel">
     <visual>
-      <origin rpy="0 1.5708 0"/>
+      <origin rpy="1.5708 1.5708 0"/>
       <geometry>
         <cylinder radius="${wheel_radius}" length="0.04"/>
       </geometry>
@@ -61,7 +61,7 @@
   <!-- Right wheel -->
   <link name="right_wheel">
     <visual>
-      <origin rpy="0 1.5708 0"/>
+      <origin rpy="1.5708 1.5708 0"/>
       <geometry>
         <cylinder radius="${wheel_radius}" length="0.04"/>
       </geometry>
