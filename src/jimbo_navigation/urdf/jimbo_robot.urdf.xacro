@@ -1,19 +1,20 @@
 <?xml version="1.0"?>
 <robot name="jimbo_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <!-- Robot parameters -->
-  <xacro:property name="base_width" value="0.0"/>
-  <xacro:property name="base_length" value="0.0"/>
-  <xacro:property name="base_height" value="0.0"/>
+  <!-- Robot parameters for testbed (no main body, just a point) -->
+  <xacro:property name="base_width" value="0.01"/>
+  <xacro:property name="base_length" value="0.01"/>
+  <xacro:property name="base_height" value="0.01"/>
   <xacro:property name="wheel_radius" value="0.0635"/>
-  <xacro:property name="wheel_base" value="0.3"/>
+  <xacro:property name="wheel_base" value="0.10"/> <!-- Small spacing between wheels -->
 
-  <!-- Sensor positions (adjust these based on your actual robot) -->
-  <xacro:property name="lidar_height" value="0.02"/>
-  <xacro:property name="camera_height" value="0.1"/>
-  <xacro:property name="camera_x_offset" value="0.05"/>
+  <!-- Sensor positions (relative to base_link, which is just a point) -->
+  <xacro:property name="lidar_x" value="-0.05"/> <!-- LiDAR to the left of wheels -->
+  <xacro:property name="lidar_z" value="0.08"/> <!-- LiDAR above wheels -->
+  <xacro:property name="camera_x" value="-0.07"/> <!-- Camera further left -->
+  <xacro:property name="camera_z" value="0.04"/> <!-- Camera below LiDAR -->
 
-  <!-- Base link -->
+  <!-- Base link (just a point, no visible body) -->
   <link name="base_link">
     <visual>
       <geometry>
@@ -29,8 +30,8 @@
       </geometry>
     </collision>
     <inertial>
-      <mass value="5.0"/>
-      <inertia ixx="0.1" ixy="0" ixz="0" iyy="0.1" iyz="0" izz="0.1"/>
+      <mass value="0.1"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
     </inertial>
   </link>
 
@@ -76,35 +77,14 @@
     </inertial>
   </link>
 
-  <!-- Caster wheel (for stability) -->
-  <!-- <link name="caster_wheel">
-    <visual>
-      <geometry>
-        <sphere radius="0.02"/>
-      </geometry>
-      <material name="black">
-        <color rgba="0.1 0.1 0.1 1"/>
-      </material>
-    </visual>
-    <collision>
-      <geometry>
-        <sphere radius="0.02"/>
-      </geometry>
-    </collision>
-    <inertial>
-      <mass value="0.1"/>
-      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
-    </inertial>
-  </link> -->
-
-  <!-- LiDAR sensor -->
+  <!-- LiDAR sensor (no geometry, just a frame) -->
   <link name="laser_frame"/>
 
-  <!-- Camera sensor -->
+  <!-- Camera sensor (no geometry, just a frame) -->
   <link name="camera_link"/>
 
   <!-- Joints -->
-  <!-- Left wheel joint -->
+  <!-- Left wheel joint: small spacing, left of base_link -->
   <joint name="left_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="left_wheel"/>
@@ -112,7 +92,7 @@
     <axis xyz="0 0 1"/>
   </joint>
 
-  <!-- Right wheel joint -->
+  <!-- Right wheel joint: small spacing, right of base_link -->
   <joint name="right_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="right_wheel"/>
@@ -120,25 +100,18 @@
     <axis xyz="0 0 1"/>
   </joint>
 
-  <!-- Caster wheel joint -->
-  <!-- <joint name="caster_wheel_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="caster_wheel"/>
-    <origin xyz="${base_length/2} 0 0" rpy="0 0 0"/>
-  </joint> -->
-
-  <!-- LiDAR joint -->
+  <!-- LiDAR joint: left and above wheels -->
   <joint name="lidar_joint" type="fixed">
     <parent link="base_link"/>
     <child link="laser_frame"/>
-    <origin xyz="0 0 ${lidar_height}" rpy="0 0 0"/>
+    <origin xyz="${lidar_x} 0 ${lidar_z}" rpy="0 0 0"/>
   </joint>
 
-  <!-- Camera joint -->
+  <!-- Camera joint: below and left of LiDAR -->
   <joint name="camera_joint" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>
-    <origin xyz="${camera_x_offset} 0 ${camera_height}" rpy="0 0 0"/>
+    <origin xyz="${camera_x} 0 ${camera_z}" rpy="0 0 0"/>
   </joint>
 
 </robot> 
