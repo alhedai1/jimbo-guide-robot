@@ -1,0 +1,6 @@
+[submodule "src/realsense-ros"]
+	path = src/realsense-ros
+	url = https://github.com/IntelRealSense/realsense-ros.git
+[submodule "src/ydlidar_ros2_driver"]
+	path = src/ydlidar_ros2_driver
+	url = https://github.com/YDLIDAR/ydlidar_ros2_driver.git
