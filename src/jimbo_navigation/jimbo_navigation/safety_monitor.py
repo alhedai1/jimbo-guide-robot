@@ -47,22 +47,33 @@ class SafetyMonitor(Node):
         self.lidar_data = msg
         
         # Check for obstacles in front of robot
-        front_angles = np.where((msg.angle_min <= msg.angles) & 
-                               (msg.angles <= msg.angle_max))[0]
+        # Define front cone angle (e.g., ±30 degrees from forward direction)
+        front_cone_angle = np.radians(30)  # 30 degrees in radians
+        
+        # Create array of angles for this scan
+        angles = np.arange(msg.angle_min, msg.angle_max + msg.angle_increment, msg.angle_increment)
+        
+        # Find angles within the front cone (around 0 degrees)
+        # Handle angle wrapping: angles near 0 could be slightly negative or positive
+        front_angles = np.where(np.abs(angles) <= front_cone_angle)[0]
         
         if len(front_angles) > 0:
             front_ranges = np.array(msg.ranges)[front_angles]
-            min_distance = np.min(front_ranges)
+            # Filter out invalid readings (inf, nan, or beyond max range)
+            valid_ranges = front_ranges[np.isfinite(front_ranges) & (front_ranges < msg.range_max)]
             
-            if min_distance < self.emergency_stop_dist:
-                self.emergency_stop = True
-                self.get_logger().warn(f'EMERGENCY STOP: Obstacle at {min_distance:.2f}m')
-            elif min_distance < self.slow_down_dist:
-                self.slow_down = True
-                self.get_logger().info(f'SLOW DOWN: Obstacle at {min_distance:.2f}m')
-            elif min_distance < self.warning_dist:
-                self.warning = True
-                self.get_logger().info(f'WARNING: Obstacle at {min_distance:.2f}m')
+            if len(valid_ranges) > 0:
+                min_distance = np.min(valid_ranges)
+                
+                if min_distance < self.emergency_stop_dist:
+                    self.emergency_stop = True
+                    self.get_logger().warn(f'EMERGENCY STOP: Obstacle at {min_distance:.2f}m')
+                elif min_distance < self.slow_down_dist:
+                    self.slow_down = True
+                    self.get_logger().info(f'SLOW DOWN: Obstacle at {min_distance:.2f}m')
+                elif min_distance < self.warning_dist:
+                    self.warning = True
+                    self.get_logger().info(f'WARNING: Obstacle at {min_distance:.2f}m')
     
     def depth_callback(self, msg):
         """Process depth camera data for obstacle detection"""
