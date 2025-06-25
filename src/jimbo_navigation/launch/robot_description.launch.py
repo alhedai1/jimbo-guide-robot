@@ -9,17 +9,20 @@ from launch_ros.substitutions import FindPackageShare
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
+from launch.substitutions import Command
 
 def generate_launch_description():
     # Get the package directory
     pkg_share = FindPackageShare('jimbo_navigation')
     
     # Get the path to the URDF file
-    urdf_file = os.path.join(get_package_share_directory('jimbo_navigation'), 'urdf', 'jimbo_robot.urdf')
+    # urdf_file = os.path.join(get_package_share_directory('jimbo_navigation'), 'urdf', 'jimbo_robot.urdf')
+    xacro_file = os.path.join(get_package_share_directory('jimbo_navigation'), 'urdf', 'jimbo_robot.urdf.xacro')
     
     # Read the URDF file
-    with open(urdf_file, 'r') as file:
-        robot_description_config = file.read()
+    # with open(urdf_file, 'r') as file:
+    #     robot_description_config = file.read()
+    robot_description_config = Command(['xacro ', xacro_file])
     
     # Launch arguments
     use_sim_time_arg = DeclareLaunchArgument(

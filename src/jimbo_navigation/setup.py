@@ -17,15 +17,8 @@ setup(
         (os.path.join('share', package_name, 'urdf'), glob('urdf/*.urdf.xacro')),
         # Include config files
         (os.path.join('share', package_name, 'config'), glob('config/*.rviz')),
-        ('share/ament_index/resource_index/packages',
-            ['resource/jimbo_navigation']),
-        ('share/jimbo_navigation/launch', [
-            'launch/guide_robot.launch.py',
-            'launch/robot_description.launch.py',
-            'launch/test_transforms.launch.py',
-            'launch/slam.launch.py',
-            'launch/navigation.launch.py'
-        ]),
+        # Include launch files
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         # Include maps directory
         (os.path.join('share', package_name, 'maps'), []),
     ],

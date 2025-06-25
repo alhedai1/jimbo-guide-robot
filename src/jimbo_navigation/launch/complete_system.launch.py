@@ -7,6 +7,7 @@ from launch_ros.actions import Node
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.substitutions import FindPackageShare
+from launch.conditions import IfCondition
 import os
 
 def generate_launch_description():
@@ -117,10 +118,10 @@ def generate_launch_description():
         ]),
         launch_arguments={
             'map': LaunchConfiguration('map'),
-            'use_sim_time': LaunchConfiguration('use_sim_time'),
+            'use_sim_time': LaunchConfiguSration('use_sim_time'),
             'params_file': [FindPackageShare('jimbo_navigation'), '/config/nav2_params.yaml']
         }.items(),
-        condition=LaunchConfiguration('enable_navigation')
+        condition=IfCondition(LaunchConfiguration('enable_navigation'))  # ✅ FIXED
     )
     
     # RViz2 for visualization
@@ -137,11 +138,11 @@ def generate_launch_description():
         enable_navigation_arg,
         map_file_arg,
         robot_description_launch,
-        motor_node,
+        # motor_node,
         safety_node,
-        follower_node,
+        # follower_node,
         realsense_launch,
         lidar_launch,
-        nav2_bringup_launch,
+        # nav2_bringup_launch,
         rviz_node
     ]) 
