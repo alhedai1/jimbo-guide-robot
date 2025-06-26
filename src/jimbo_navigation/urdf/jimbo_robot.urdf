@@ -7,7 +7,7 @@
   <!-- 15 cm spacing between wheels -->
   <!-- 2 cm below base -->
   <!-- Base link (just a point, no visible body) -->
-  <link name="base_link">
+  <link name="robot_base_link">
     <visual>
       <geometry>
         <box size="0.01 0.01 0.01"/>
@@ -93,29 +93,29 @@
     </visual>
   </link>
   <!-- Joints -->
-  <!-- Left wheel joint: left of base_link -->
+  <!-- Left wheel joint: left of robot_base_link -->
   <joint name="left_wheel_joint" type="continuous">
-    <parent link="base_link"/>
+    <parent link="robot_base_link"/>
     <child link="left_wheel"/>
     <origin rpy="0 0 0" xyz="0 0.075 0"/>
     <axis xyz="0 1 0"/>
   </joint>
-  <!-- Right wheel joint: right of base_link -->
+  <!-- Right wheel joint: right of robot_base_link -->
   <joint name="right_wheel_joint" type="continuous">
-    <parent link="base_link"/>
+    <parent link="robot_base_link"/>
     <child link="right_wheel"/>
     <origin rpy="0 0 0" xyz="0 -0.075 0"/>
     <axis xyz="0 1 0"/>
   </joint>
   <!-- LiDAR joint: left and above wheels -->
   <joint name="lidar_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="laser_frame"/>
+    <parent link="robot_base_link"/>
+    <child link="robot_lidar_link"/>
     <origin rpy="0 0 0" xyz="0 0.105 0.15"/>
   </joint>
   <!-- Camera joint: left of lidar and below base -->
   <joint name="camera_joint" type="fixed">
-    <parent link="base_link"/>
+    <parent link="robot_base_link"/>
     <child link="robot_camera_link"/>
     <origin rpy="0 0 0" xyz="0.05 0.255 -0.02"/>
   </joint>
