@@ -22,13 +22,13 @@ def generate_launch_description():
     
     enable_motor_arg = DeclareLaunchArgument(
         'enable_motor',
-        default_value='true',
+        default_value='false',
         description='Enable motor control (disable for simulation)'
     )
     
     enable_follower_arg = DeclareLaunchArgument(
         'enable_follower',
-        default_value='true',
+        default_value='false',
         description='Enable user following behavior'
     )
     
@@ -40,7 +40,7 @@ def generate_launch_description():
     
     enable_rviz_arg = DeclareLaunchArgument(
         'enable_rviz',
-        default_value='false',
+        default_value='true',
         description='Enable RViz visualization'
     )
     

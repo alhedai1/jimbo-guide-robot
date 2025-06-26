@@ -78,7 +78,7 @@ def generate_launch_description():
             '0', '0', '0',  # x, y, z translation
             '0', '0', '0',  # roll, pitch, yaw rotation
             'robot_lidar_link',   # parent frame (URDF frame)
-            'lidar_link'          # child frame (Lidar base frame)
+            'laser_frame'          # child frame (Lidar base frame)
         ],
         output='screen'
     )
@@ -89,5 +89,6 @@ def generate_launch_description():
         use_sim_time_arg,
         robot_state_publisher_node,
         joint_state_publisher_node,
-        camera_tf_node
+        camera_tf_node,
+        lidar_tf_node
     ]) 
