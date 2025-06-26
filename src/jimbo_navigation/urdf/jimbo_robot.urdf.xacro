@@ -6,13 +6,13 @@
   <xacro:property name="base_length" value="0.01"/>
   <xacro:property name="base_height" value="0.01"/>
   <xacro:property name="wheel_radius" value="0.0635"/>
-  <xacro:property name="wheel_base" value="0.10"/> <!-- Small spacing between wheels -->
+  <xacro:property name="wheel_base" value="0.15"/> <!-- 15 cm spacing between wheels -->
 
   <!-- Sensor positions (relative to base_link, which is just a point) -->
-  <xacro:property name="lidar_x" value="-0.05"/> <!-- LiDAR to the left of wheels -->
-  <xacro:property name="lidar_z" value="0.08"/> <!-- LiDAR above wheels -->
-  <xacro:property name="camera_x" value="-0.07"/> <!-- Camera further left -->
-  <xacro:property name="camera_z" value="0.04"/> <!-- Camera below LiDAR -->
+  <xacro:property name="lidar_x" value="${wheel_base/2 + 0.03}"/> <!-- 3 cm left of left wheel -->
+  <xacro:property name="lidar_z" value="0.15"/> <!-- 15 cm above base -->
+  <xacro:property name="camera_x" value="${wheel_base/2 + 0.03 + 0.15}"/> <!-- 15 cm left of lidar -->
+  <xacro:property name="camera_z" value="-0.02"/> <!-- 2 cm below base -->
 
   <!-- Base link (just a point, no visible body) -->
   <link name="base_link">
@@ -38,7 +38,7 @@
   <!-- Left wheel -->
   <link name="left_wheel">
     <visual>
-      <origin rpy="1.5708 1.5708 0"/>
+      <origin rpy="0 0 1.5708"/>
       <geometry>
         <cylinder radius="${wheel_radius}" length="0.04"/>
       </geometry>
@@ -47,7 +47,7 @@
       </material>
     </visual>
     <collision>
-      <origin rpy="0 1.5708 0"/>
+      <origin rpy="0 0 1.5708"/>
       <geometry>
         <cylinder radius="${wheel_radius}" length="0.04"/>
       </geometry>
@@ -61,7 +61,7 @@
   <!-- Right wheel -->
   <link name="right_wheel">
     <visual>
-      <origin rpy="1.5708 1.5708 0"/>
+      <origin rpy="0 0 1.5708"/>
       <geometry>
         <cylinder radius="${wheel_radius}" length="0.04"/>
       </geometry>
@@ -70,7 +70,7 @@
       </material>
     </visual>
     <collision>
-      <origin rpy="0 1.5708 0"/>
+      <origin rpy="0 0 1.5708"/>
       <geometry>
         <cylinder radius="${wheel_radius}" length="0.04"/>
       </geometry>
@@ -81,27 +81,45 @@
     </inertial>
   </link>
 
-  <!-- LiDAR sensor (no geometry, just a frame) -->
-  <link name="laser_frame"/>
+  <!-- LiDAR sensor (now with a simple visual) -->
+  <link name="laser_frame">
+    <visual>
+      <geometry>
+        <cylinder radius="0.03" length="0.02"/>
+      </geometry>
+      <material name="green">
+        <color rgba="0.2 1 0.2 1"/>
+      </material>
+    </visual>
+  </link>
 
-  <!-- Camera sensor (no geometry, just a frame) -->
-  <link name="camera_link"/>
+  <!-- Camera sensor (now with a simple visual) -->
+  <link name="camera_link">
+    <visual>
+      <geometry>
+        <box size="0.04 0.04 0.02"/>
+      </geometry>
+      <material name="red">
+        <color rgba="1 0.2 0.2 1"/>
+      </material>
+    </visual>
+  </link>
 
   <!-- Joints -->
-  <!-- Left wheel joint: small spacing, left of base_link -->
+  <!-- Left wheel joint: left of base_link -->
   <joint name="left_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="left_wheel"/>
     <origin xyz="0 ${wheel_base/2} 0" rpy="0 0 0"/>
-    <axis xyz="0 0 1"/>
+    <axis xyz="0 1 0"/>
   </joint>
 
-  <!-- Right wheel joint: small spacing, right of base_link -->
+  <!-- Right wheel joint: right of base_link -->
   <joint name="right_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="right_wheel"/>
     <origin xyz="0 ${-wheel_base/2} 0" rpy="0 0 0"/>
-    <axis xyz="0 0 1"/>
+    <axis xyz="0 1 0"/>
   </joint>
 
   <!-- LiDAR joint: left and above wheels -->
@@ -111,7 +129,7 @@
     <origin xyz="${lidar_x} 0 ${lidar_z}" rpy="0 0 0"/>
   </joint>
 
-  <!-- Camera joint: below and left of LiDAR -->
+  <!-- Camera joint: left of lidar and below base -->
   <joint name="camera_joint" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>

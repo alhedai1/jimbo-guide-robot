@@ -16,13 +16,13 @@ def generate_launch_description():
     pkg_share = FindPackageShare('jimbo_navigation')
     
     # Get the path to the URDF file
-    # urdf_file = os.path.join(get_package_share_directory('jimbo_navigation'), 'urdf', 'jimbo_robot.urdf')
-    xacro_file = os.path.join(get_package_share_directory('jimbo_navigation'), 'urdf', 'jimbo_robot.urdf.xacro')
+    urdf_file = os.path.join(get_package_share_directory('jimbo_navigation'), 'urdf', 'jimbo_robot.urdf')
+    # xacro_file = os.path.join(get_package_share_directory('jimbo_navigation'), 'urdf', 'jimbo_robot.urdf.xacro')
     
     # Read the URDF file
-    # with open(urdf_file, 'r') as file:
-    #     robot_description_config = file.read()
-    robot_description_config = Command(['xacro ', xacro_file])
+    with open(urdf_file, 'r') as file:
+        robot_description_config = file.read()
+    # robot_description_config = Command(['xacro ', xacro_file])
     
     # Launch arguments
     use_sim_time_arg = DeclareLaunchArgument(
