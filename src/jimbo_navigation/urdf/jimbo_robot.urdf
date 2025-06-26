@@ -71,7 +71,7 @@
     </inertial>
   </link>
   <!-- LiDAR sensor (now with a simple visual) -->
-  <link name="laser_frame">
+  <link name="robot_lidar_link">
     <visual>
       <geometry>
         <cylinder length="0.02" radius="0.03"/>
@@ -82,7 +82,7 @@
     </visual>
   </link>
   <!-- Camera sensor (now with a simple visual) -->
-  <link name="camera_link">
+  <link name="robot_camera_link">
     <visual>
       <geometry>
         <box size="0.04 0.04 0.02"/>
@@ -116,7 +116,7 @@
   <!-- Camera joint: left of lidar and below base -->
   <joint name="camera_joint" type="fixed">
     <parent link="base_link"/>
-    <child link="camera_link"/>
+    <child link="robot_camera_link"/>
     <origin rpy="0 0 0" xyz="0.05 0.255 -0.02"/>
   </joint>
 </robot>

@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
-from launch.actions import IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from launch.conditions import IfCondition
 import os
@@ -21,27 +20,48 @@ def generate_launch_description():
         description='Use simulation time'
     )
     
+    enable_motor_arg = DeclareLaunchArgument(
+        'enable_motor',
+        default_value='true',
+        description='Enable motor control (disable for simulation)'
+    )
+    
+    enable_follower_arg = DeclareLaunchArgument(
+        'enable_follower',
+        default_value='true',
+        description='Enable user following behavior'
+    )
+    
     enable_navigation_arg = DeclareLaunchArgument(
         'enable_navigation',
         default_value='false',
         description='Enable autonomous navigation'
     )
     
+    enable_rviz_arg = DeclareLaunchArgument(
+        'enable_rviz',
+        default_value='false',
+        description='Enable RViz visualization'
+    )
+    
     map_file_arg = DeclareLaunchArgument(
         'map',
         default_value=[FindPackageShare('jimbo_navigation'), '/maps/my_map.yaml'],
-        description='Path to map file'
+        description='Path to map file (for navigation)'
     )
     
     # Robot description launch
     robot_description_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
-            FindPackageShare('jimbo_navigation'),
-            '/launch/robot_description.launch.py'
+            PathJoinSubstitution([
+                FindPackageShare('jimbo_navigation'),
+                'launch',
+                'robot_description.launch.py'
+            ])
         ])
     )
     
-    # Motor interface node
+    # Motor interface node (conditional)
     motor_node = Node(
         package='motor_interface_pkg',
         executable='motor_serial_node',
@@ -52,10 +72,11 @@ def generate_launch_description():
             'wheel_radius': 0.0635,
             'wheel_base': 0.3
         }],
-        output='screen'
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('enable_motor'))
     )
     
-    # Safety monitor node (with remapping)
+    # Safety monitor node (always enabled)
     safety_node = Node(
         package='jimbo_navigation',
         executable='safety_monitor',
@@ -72,7 +93,7 @@ def generate_launch_description():
         output='screen'
     )
     
-    # User follower node
+    # User follower node (conditional)
     follower_node = Node(
         package='jimbo_navigation',
         executable='user_follower',
@@ -83,14 +104,18 @@ def generate_launch_description():
             'max_angular_velocity': 1.0,
             'person_detection_threshold': 0.3
         }],
-        output='screen'
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('enable_follower'))
     )
     
-    # RealSense camera launch
+    # RealSense camera launch (always enabled)
     realsense_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
-            FindPackageShare('realsense2_camera'),
-            '/launch/rs_launch.py'
+            PathJoinSubstitution([
+                FindPackageShare('realsense2_camera'),
+                'launch',
+                'rs_launch.py'
+            ])
         ]),
         launch_arguments={
             'enable_depth': 'true',
@@ -102,11 +127,14 @@ def generate_launch_description():
         }.items()
     )
     
-    # YDLidar launch
+    # YDLidar launch (always enabled)
     lidar_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
-            FindPackageShare('ydlidar_ros2_driver'),
-            '/launch/ydlidar_launch.py'
+            PathJoinSubstitution([
+                FindPackageShare('ydlidar_ros2_driver'),
+                'launch',
+                'ydlidar_launch.py'
+            ])
         ])
     )
     
@@ -118,31 +146,35 @@ def generate_launch_description():
         ]),
         launch_arguments={
             'map': LaunchConfiguration('map'),
-            'use_sim_time': LaunchConfiguSration('use_sim_time'),
+            'use_sim_time': LaunchConfiguration('use_sim_time'),
             'params_file': [FindPackageShare('jimbo_navigation'), '/config/nav2_params.yaml']
         }.items(),
-        condition=IfCondition(LaunchConfiguration('enable_navigation'))  # ✅ FIXED
+        condition=IfCondition(LaunchConfiguration('enable_navigation'))
     )
     
-    # RViz2 for visualization
+    # RViz2 for visualization (conditional)
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
         name='rviz2',
         arguments=['-d', [FindPackageShare('jimbo_navigation'), '/config/complete_view.rviz']],
-        output='screen'
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('enable_rviz'))
     )
     
     return LaunchDescription([
         use_sim_time_arg,
+        enable_motor_arg,
+        enable_follower_arg,
         enable_navigation_arg,
+        enable_rviz_arg,
         map_file_arg,
         robot_description_launch,
-        # motor_node,
+        motor_node,
         safety_node,
-        # follower_node,
+        follower_node,
         realsense_launch,
         lidar_launch,
-        # nav2_bringup_launch,
+        nav2_bringup_launch,
         rviz_node
     ]) 

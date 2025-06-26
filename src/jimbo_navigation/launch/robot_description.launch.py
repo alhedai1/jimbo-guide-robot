@@ -55,7 +55,7 @@ def generate_launch_description():
     )
     
     # Static transform publisher for RealSense camera
-    # This connects the camera_link from URDF to the RealSense camera frame
+    # This connects the robot_camera_link from URDF to the RealSense camera_link frame
     camera_tf_node = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
@@ -63,11 +63,27 @@ def generate_launch_description():
         arguments=[
             '0', '0', '0',  # x, y, z translation
             '0', '0', '0',  # roll, pitch, yaw rotation
-            'camera_link',   # parent frame
-            'camera_depth_frame'  # child frame (RealSense frame)
+            'robot_camera_link',   # parent frame (URDF frame)
+            'camera_link'          # child frame (RealSense base frame)
         ],
         output='screen'
     )
+
+    # Static transform publisher for Lidar
+    lidar_tf_node = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='lidar_tf_publisher',
+        arguments=[
+            '0', '0', '0',  # x, y, z translation
+            '0', '0', '0',  # roll, pitch, yaw rotation
+            'robot_lidar_link',   # parent frame (URDF frame)
+            'lidar_link'          # child frame (Lidar base frame)
+        ],
+        output='screen'
+    )
+
+    # Static transform publisher for UWB
     
     return LaunchDescription([
         use_sim_time_arg,

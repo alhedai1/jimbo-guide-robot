@@ -1,0 +1,17 @@
+
+## June 23
+- Read some papers on UWB and autonomous following robots
+
+## June 24
+- getting familar with testbed and components
+- testing depth camera, lidar, motors
+
+## June 25
+- created simple urdf for testbed
+- launch file for running sensors and motors together
+
+## June 26
+# Plan
+- test uwb sensors
+- set up frames & integrate sensors, motors
+- 
