@@ -26,3 +26,10 @@
 - frames from urdf not showing up -> ensure all frames are defined, 
                                     avoid conflicting names, 
                                     check frames using "ros2 run tf2_tools view_frames"
+
+
+## June 27
+# Plan
+- test uwb sensors
+- test code on jetson nano
+- 
