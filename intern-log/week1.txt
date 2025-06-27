@@ -2,16 +2,27 @@
 ## June 23
 - Read some papers on UWB and autonomous following robots
 
+
 ## June 24
 - getting familar with testbed and components
 - testing depth camera, lidar, motors
+
 
 ## June 25
 - created simple urdf for testbed
 - launch file for running sensors and motors together
 
+
 ## June 26
 # Plan
 - test uwb sensors
 - set up frames & integrate sensors, motors
-- 
+
+# Done
+- set up transform tree for testbed
+- modified ydlidar vendor launch file to remove "base_link"
+
+# Issues
+- frames from urdf not showing up -> ensure all frames are defined, 
+                                    avoid conflicting names, 
+                                    check frames using "ros2 run tf2_tools view_frames"
