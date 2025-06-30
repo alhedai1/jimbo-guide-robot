@@ -1,0 +1,13 @@
+
+## June 30
+# Plan
+ - test uwb sensors
+ - look into navigation/slam with lidar
+ - 
+
+# Done
+ - after connecting cable to uwb, must send \r\r
+ - after that, only send \r to get last output
+ - problem with tag uwb
+ - lec command to start ranging -> reset command to stop
+ - looked into slam/nav. use slam to make map -> nav2 stack to navigate

@@ -1,35 +1,39 @@
 import serial
 import time
 
-ser = serial.Serial(port='COM3', baudrate=115200, timeout=1)
-print(f"Serial port {ser.portstr} opened successfully.")
+# tag = COM3
+# anchor0 = COM4
 
-def read_serial_data():
-    while True:
-        if ser.in_waiting > 0:
-            data = ser.readline().decode('utf-8').rstrip()
-            print(f"Received: {data}")
+def request_sensor_data():
+    tag.write(b'reset\r')
+    anchor0.write(b'reset\r')
+
+    time.sleep(1)
+
+    tag.write(b'\r')
+    anchor0.write(b'\r')
+    tag.write(b'\r')
+    anchor0.write(b'\r')
+
+    time.sleep(1)
+
+    tag.write(b'lec\r')
+
+def read_sensor_data(serial_port):
+    string = tag.readline().decode('utf-8').strip()
+
+
 
 def main():
-    try:
-        print("Starting to read from serial port...")
-        read_serial_data()
-    except KeyboardInterrupt:
-        print("Exiting...")
-    finally:
-        ser.close()
-        print("Serial port closed.")
+    global tag, anchor0
+    tag = serial.Serial('COM3', baudrate=115200, timeout=1)
+    anchor0 = serial.Serial('COM4', baudrate=115200, timeout=1)
+    time.sleep(2)  # Allow time for the serial connection to establish
+    
+    request_sensor_data()
 
-# if __name__ == "__main__":
-#     main()
+# tag.write(b'si\r')
+# time.sleep(0.5)
 
-ser.write(b'\r\n')
-time.sleep(0.1)
-
-ser.write(b'si\r\n')
-time.sleep(0.1)
-
-while True:
-    line = ser.readline()
-    if line:
-        print(">>", line.decode(errors='ignore').strip())
+if __name__ == "__main__":
+    main()
