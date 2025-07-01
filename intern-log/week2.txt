@@ -11,3 +11,9 @@
  - problem with tag uwb
  - lec command to start ranging -> reset command to stop
  - looked into slam/nav. use slam to make map -> nav2 stack to navigate
+
+
+## July 1
+# Plan
+ - set up ros2 node to integrate uwb tag and anchor (expand to 4 anchors)
+ - look into navigation/slam with lidar
