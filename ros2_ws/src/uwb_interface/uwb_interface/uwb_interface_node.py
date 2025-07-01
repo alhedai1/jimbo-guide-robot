@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float32MultiArray, Point
+from std_msgs.msg import Float32MultiArray
+from geometry_msgs.msg import Point
 import serial
 import time
 import numpy as np

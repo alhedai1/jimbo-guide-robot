@@ -2,7 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, PointStamped
+from geometry_msgs.msg import Twist, Point
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool
 import numpy as np
@@ -17,32 +17,28 @@ class UserFollower(Node):
         self.declare_parameter('target_distance', 1.0)      # 1m from user
         self.declare_parameter('max_linear_velocity', 0.5)  # 0.5 m/s
         self.declare_parameter('max_angular_velocity', 1.0) # 1.0 rad/s
-        self.declare_parameter('person_detection_threshold', 0.3)  # 30cm radius
         
         self.target_distance = self.get_parameter('target_distance').value
         self.max_linear_vel = self.get_parameter('max_linear_velocity').value
         self.max_angular_vel = self.get_parameter('max_angular_velocity').value
-        self.person_threshold = self.get_parameter('person_detection_threshold').value
         
         # State variables
         self.user_position: Optional[Tuple[float, float]] = None
-        self.user_velocity: Optional[Tuple[float, float]] = None
-        self.last_user_position: Optional[Tuple[float, float]] = None
         self.safety_status = True
         
         # Publishers
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         
         # Subscribers
-        self.lidar_sub = self.create_subscription(LaserScan, 'scan', self.lidar_callback, 10)
         self.safety_sub = self.create_subscription(Bool, 'safety_status', self.safety_callback, 10)
+        self.uwb_sub = self.create_subscription(Point, "uwb_position", self.uwb_callback, 10)
         
         # Timer for control loop
         self.control_timer = self.create_timer(0.1, self.control_loop)  # 10Hz
         
         self.get_logger().info('User Follower initialized')
     
-    def lidar_callback(self, msg):
+    '''def lidar_callback(self, msg):
         """Process lidar data to detect and track user"""
         # Simple person detection based on leg detection
         # This is a simplified approach - you may want to use more sophisticated methods
@@ -80,9 +76,9 @@ class UserFollower(Node):
             self.last_user_position = self.user_position
         else:
             self.user_position = None
-            self.user_velocity = None
-    
-    def detect_people(self, x_coords, y_coords):
+            self.user_velocity = None'''
+
+    '''def detect_people(self, x_coords, y_coords):
         """Simple person detection using clustering"""
         people = []
         
@@ -118,12 +114,15 @@ class UserFollower(Node):
                 if center_x > 0.3 and center_x < 3.0:  # Between 30cm and 3m
                     people.append((center_x, center_y))
         
-        return people
+        return people'''
     
     def safety_callback(self, msg):
         """Handle safety status updates"""
         self.safety_status = msg.data
-    
+
+    def uwb_callback(self, msg):
+        self.user_position = (msg.x, msg.y)
+
     def control_loop(self):
         """Main control loop for following user"""
         if not self.safety_status:
