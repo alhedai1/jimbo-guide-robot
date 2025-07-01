@@ -17,3 +17,9 @@
 # Plan
  - set up ros2 node to integrate uwb tag and anchor (expand to 4 anchors)
  - look into navigation/slam with lidar
+
+# Done
+ - wrote ros2 node for uwb sensor integration
+ - connecting uwb sensor: ttyACM*. * is in order: 0, 1, 2, 3.
+ - issue: Up squared sbc keeps restarting. probably power issue. might be too many usb devices
+ - 

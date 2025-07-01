@@ -15,12 +15,17 @@ from scipy.optimize import minimize
 # anchor positions:
 anchors = [(-1, 1), (1, 1), (-1, -1), (1, -1)]  # Example positions
 
+# left front anchor = ttyACM0
+# right front anchor = ttyACM1
+# left back anchor = ttyACM2
+# right back anchor = ttyACM3
+
 class UWBInterfaceNode(Node):
     def __init__(self):
         super().__init__('uwb_interface_node')
         # Declare parameters for ports
-        # self.declare_parameter('anchor_ports', ['/dev/ttyUSB1', '/dev/ttyUSB2', '/dev/ttyUSB3', '/dev/ttyUSB4']) # left front, right front, left back, right back
-        self.declare_parameter('anchor_ports', ['/dev/ttyUSB1']) # testing with one anchor
+        self.declare_parameter('anchor_ports', ['/dev/ttyUSB1', '/dev/ttyUSB2', '/dev/ttyUSB3', '/dev/ttyUSB4']) # left front, right front, left back, right back
+        # self.declare_parameter('anchor_ports', ['/dev/ttyUSB1']) # testing with one anchor
         self.declare_parameter('baudrate', 115200)
 
         # Get parameters
