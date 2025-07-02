@@ -22,4 +22,13 @@
  - wrote ros2 node for uwb sensor integration
  - connecting uwb sensor: ttyACM*. * is in order: 0, 1, 2, 3.
  - issue: Up squared sbc keeps restarting. probably power issue. might be too many usb devices
- - 
+
+
+## July 2
+# Plan
+ - testing uwb sensors
+
+# Done
+ - set up uwb sensors. all 4 on 1 usb hub causes crashes. renamed ttyACM* to fixed names based on each sensor's ATTRS{serial}
+ - integrated 4 robot uwb (tags) to get position of person uwb (anchor), filtered with kalman
+ - can only read uwb data from tags, not anchors

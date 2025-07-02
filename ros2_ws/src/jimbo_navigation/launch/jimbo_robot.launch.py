@@ -20,6 +20,12 @@ def generate_launch_description():
         description='Use simulation time'
     )
     
+    enable_realsense_arg = DeclareLaunchArgument(
+        'enable_realsense',
+        default_value='false',
+        description='Enable RealSense camera'
+    )
+    
     enable_motor_arg = DeclareLaunchArgument(
         'enable_motor',
         default_value='false',
@@ -108,7 +114,7 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('enable_follower'))
     )
     
-    # RealSense camera launch (always enabled)
+    # RealSense camera launch (conditional)
     realsense_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
@@ -124,7 +130,8 @@ def generate_launch_description():
             'depth_width': '640',
             'depth_height': '480',
             'depth_fps': '30'
-        }.items()
+        }.items(),
+        condition=IfCondition(LaunchConfiguration('enable_realsense'))
     )
     
     # YDLidar launch (always enabled)
@@ -134,6 +141,17 @@ def generate_launch_description():
                 FindPackageShare('ydlidar_ros2_driver'),
                 'launch',
                 'ydlidar_launch.py'
+            ])
+        ])
+    )
+    
+    # UWB launch (always enabled)
+    uwb_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('uwb_interface'),
+                'launch',
+                'uwb.launch.py'
             ])
         ])
     )
@@ -164,6 +182,7 @@ def generate_launch_description():
     
     return LaunchDescription([
         use_sim_time_arg,
+        enable_realsense_arg,
         enable_motor_arg,
         enable_follower_arg,
         enable_navigation_arg,
@@ -175,6 +194,7 @@ def generate_launch_description():
         follower_node,
         realsense_launch,
         lidar_launch,
+        uwb_launch,
         nav2_bringup_launch,
         rviz_node
-    ]) 
+    ])
