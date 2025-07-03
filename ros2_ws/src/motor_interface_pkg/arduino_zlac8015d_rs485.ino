@@ -1,80 +1,178 @@
-// Arduino sketch for ZLAC8015D RS485 control from ROS2
-// Updated to match b1 robot wiring: SoftwareSerial on pins 8 (TX), 9 (RX), DE/RE on pin 22, baudrate 115200
-//
-// == Required Libraries ==
-// Install ModbusMaster from Arduino Library Manager
 #include <ModbusMaster.h>
-#include <SoftwareSerial.h>
 
-// == USER: These pins/settings match the b1 robot ==
-#define RS485_DE_RE_PIN 22        // Pin to control RS485 DE/RE (direction)
-#define ZLAC_MODBUS_ID 1          // Modbus address of your ZLAC8015D (check DIP switches/manual)
-#define RS485_BAUDRATE 115200     // Baudrate for ZLAC8015D (b1 robot uses 115200)
-#define RS485_RX_PIN 8            // RS485 RO (driver TX to Arduino RX)
-#define RS485_TX_PIN 9            // RS485 DI (driver RX to Arduino TX)
+#define MAX485_DE_RE 22  // RS485 제어 핀
 
-SoftwareSerial rs485Serial(RS485_RX_PIN, RS485_TX_PIN); // RX, TX
 ModbusMaster node;
 
 void preTransmission() {
-  digitalWrite(RS485_DE_RE_PIN, 1); // Set DE/RE high (transmit mode)
+  digitalWrite(MAX485_DE_RE, HIGH);
 }
 
 void postTransmission() {
-  digitalWrite(RS485_DE_RE_PIN, 0); // Set DE/RE low (receive mode)
+  digitalWrite(MAX485_DE_RE, LOW);
 }
 
 void setup() {
-  Serial.begin(115200);    // USB serial to PC/ROS
-  rs485Serial.begin(RS485_BAUDRATE); // RS485 to ZLAC8015D
-  pinMode(RS485_DE_RE_PIN, OUTPUT);
-  digitalWrite(RS485_DE_RE_PIN, 0);
+  pinMode(MAX485_DE_RE, OUTPUT);
+  digitalWrite(MAX485_DE_RE, LOW);
 
-  node.begin(ZLAC_MODBUS_ID, rs485Serial);
+  Serial.begin(115200);        // ROS 2와 통신
+  while (!Serial);
+  Serial.println("Arduino ready");
+  Serial1.begin(115200);       // RS485 (ZLAC8015D)
+
+  node.begin(1, Serial1);
   node.preTransmission(preTransmission);
   node.postTransmission(postTransmission);
+
+  delay(500);
+
+  // 속도 모드 설정
+  if (node.writeSingleRegister(0x200D, 0x0003) == node.ku8MBSuccess)
+    Serial.println("Speed mode set.");
+  else
+    Serial.println("❌ Failed to set speed mode.");
+
+  if (node.writeSingleRegister(0x200E, 0x0008) == node.ku8MBSuccess)
+    Serial.println("Motor enabled.");
+  else
+    Serial.println("❌ Failed to enable motor.");
+  delay(200);
 }
 
 void loop() {
-  // 1. Read command from ROS/PC
+  // 1. ROS 2에서 RPM 명령 수신
   if (Serial.available()) {
-    String cmd = Serial.readStringUntil('\n');
-    cmd.trim();
-    if (cmd.startsWith("R")) {
-      int commaIdx = cmd.indexOf(',');
-      if (commaIdx > 1) {
-        int left = cmd.substring(1, commaIdx).toInt();
-        int right = cmd.substring(commaIdx + 1).toInt();
-        setZLACSpeed(1, left);  // Channel 1 (left motor)
-        setZLACSpeed(2, right); // Channel 2 (right motor)
+    String input = Serial.readStringUntil('\n');  // 예: R120,-110
+    input.trim();
+
+    if (input.startsWith("R")) {
+      // Serial.print("Got: "); Serial.println(input);
+      input.remove(0, 1);  // 'R' 제거
+      int commaIdx = input.indexOf(',');
+      if (commaIdx > 0) {
+        int16_t left_rpm = input.substring(0, commaIdx).toInt();
+        int16_t right_rpm = input.substring(commaIdx + 1).toInt();
+
+        node.writeSingleRegister(0x2088, left_rpm);   // Left motor
+        node.writeSingleRegister(0x2089, right_rpm);  // Right motor
       }
     }
   }
 
-  // 2. Periodically read actual speed from ZLAC8015D and send to ROS/PC
-  static unsigned long lastSend = 0;
-  if (millis() - lastSend > 50) {
-    lastSend = millis();
-    int left_rpm = readZLACSpeed(1);  // channel 1
-    int right_rpm = readZLACSpeed(2); // channel 2
+  // 2. ZLAC8015D에서 실제 속도 읽기
+  uint8_t result = node.readHoldingRegisters(0x20AB, 2);  // 0x20AB: left, 0x20AC: right
+  if (result == node.ku8MBSuccess) {
+    int16_t actual_left = (int16_t)node.getResponseBuffer(0);
+    int16_t actual_right = (int16_t)node.getResponseBuffer(1);
+
+    // 3. ROS 2로 응답 전송
     Serial.print("E:");
-    Serial.print(left_rpm);
+    Serial.print(actual_left);
     Serial.print(",");
-    Serial.println(right_rpm);
+    Serial.println(actual_right);
   }
+
+  delay(50);  // 20Hz 주기
 }
 
-// Send speed command to ZLAC8015D
-void setZLACSpeed(int channel, int rpm) {
-  // == USER: Confirm register addresses in your ZLAC8015D manual ==
-  uint16_t reg = (channel == 1) ? 0x2002 : 0x2102; // 0x2002 for M1, 0x2102 for M2 (typical)
-  node.writeSingleRegister(reg, rpm);
-}
 
-// Read speed from ZLAC8015D
-int readZLACSpeed(int channel) {
-  // == USER: Confirm register addresses in your ZLAC8015D manual ==
-  uint16_t reg = (channel == 1) ? 0x200C : 0x210C; // 0x200C for M1, 0x210C for M2 (typical)
-  node.readHoldingRegisters(reg, 1);
-  return (int16_t)node.getResponseBuffer(0); // Cast to signed int
-} 
+
+// #include <ModbusMaster.h>
+
+// #define MAX485_DE_RE 22  // RS485 제어 핀 (DE/RE 공통)
+
+// // Modbus 인스턴스 생성
+// ModbusMaster node;
+
+// void preTransmission() {
+//   digitalWrite(MAX485_DE_RE, HIGH);
+// }
+
+// void postTransmission() {
+//   digitalWrite(MAX485_DE_RE, LOW);
+// }
+
+// void setup() {
+//   pinMode(MAX485_DE_RE, OUTPUT);
+//   digitalWrite(MAX485_DE_RE, LOW);  // 초기엔 수신 모드
+
+//   Serial.begin(115200);   // 디버깅용 시리얼
+//   Serial1.begin(115200);  // ZLAC8015D 기본 보레이트
+
+//   node.begin(1, Serial1);  // 슬레이브 주소 1
+//   node.preTransmission(preTransmission);
+//   node.postTransmission(postTransmission);
+
+//   delay(500);
+
+//   // 운전 모드 설정 (속도 모드: 0x0003)
+//   if (node.writeSingleRegister(0x200D, 0x0003) == node.ku8MBSuccess) {
+//     Serial.println("✅ Mode set to Speed Mode.");
+//   } else {
+//     Serial.println("❌ Failed to set speed mode.");
+//   }
+//   delay(100);
+
+//   // 모터 Enable (0x200E ← 0x0008)
+//   if (node.writeSingleRegister(0x200E, 0x0008) == node.ku8MBSuccess) {
+//     Serial.println("✅ Motor enabled.");
+//   } else {
+//     Serial.println("❌ Motor enable failed.");
+//   }
+
+//   delay(500);
+// }
+
+// int speed = 0;
+// bool increasing = true;
+
+// void loop() {
+//   // 1. 현재 속도 설정
+//   if (node.writeSingleRegister(0x2088, -speed) == node.ku8MBSuccess && node.writeSingleRegister(0x2089, speed) == node.ku8MBSuccess) {
+//     Serial.print("✅ Set speed to: ");
+//     Serial.println(speed);
+//   } else {
+//     Serial.println("❌ Failed to set speed.");
+//   }
+
+//   delay(300);  // 모터 반응 대기
+
+//   // 2. 실제 속도 읽기
+//   uint8_t result = node.readHoldingRegisters(0x20AB, 2);
+//   if (result == node.ku8MBSuccess) {
+//     int16_t left = (int16_t)node.getResponseBuffer(0);
+//     int16_t right = (int16_t)node.getResponseBuffer(1);
+
+//     Serial.print("📈 Actual Left Speed: ");
+//     Serial.print(left / 10.0);
+//     Serial.print(" RPM | Right Speed: ");
+//     Serial.print(right / 10.0);
+//     Serial.println(" RPM");
+//   } else {
+//     Serial.print("❌ Speed read failed. Code: ");
+//     Serial.println(result, HEX);
+//   }
+
+//   delay(300);
+
+//   // 3. 속도 증가 또는 감소
+//   if (increasing) {
+//     speed++;
+//     if (speed >= 200) {
+//       increasing = false;  // 최고 속도 도달 → 감소로 전환
+//     }
+//   } else {
+//     speed--;
+//     if (speed <= 0) {
+//       // 4. 정지 명령 전송
+//       if (node.writeSingleRegister(0x200E, 0x0007) == node.ku8MBSuccess) {
+//         Serial.println("🛑 Motor stop command sent.");
+//       } else {
+//         Serial.println("❌ Stop command failed.");
+//       }
+//       while (true)
+//         ;  // 동작 종료
+//     }
+//   }
+// }
