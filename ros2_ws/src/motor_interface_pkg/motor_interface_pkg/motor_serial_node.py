@@ -113,7 +113,7 @@ class MotorSerialNode(Node):
         odom = Odometry()
         odom.header.stamp = now.to_msg()
         odom.header.frame_id = 'odom'
-        odom.child_frame_id = 'base_link'
+        odom.child_frame_id = 'robot_base_link'
         odom.pose.pose.position.x = self.x
         odom.pose.pose.position.y = self.y
         odom.pose.pose.orientation.x = q[0]
@@ -125,47 +125,47 @@ class MotorSerialNode(Node):
 
         self.odom_pub.publish(odom)
 
-        # TF 브로드캐스트
-        t = TransformStamped()
-        t.header.stamp = now.to_msg()
-        t.header.frame_id = 'odom'
-        t.child_frame_id = 'base_link'
-        t.transform.translation.x = self.x
-        t.transform.translation.y = self.y
-        t.transform.translation.z = 0.0
-        t.transform.rotation.x = q[0]
-        t.transform.rotation.y = q[1]
-        t.transform.rotation.z = q[2]
-        t.transform.rotation.w = q[3]
-        self.tf_broadcaster.sendTransform(t)
+        # # TF 브로드캐스트
+        # t = TransformStamped()
+        # t.header.stamp = now.to_msg()
+        # t.header.frame_id = 'odom'
+        # t.child_frame_id = 'base_link'
+        # t.transform.translation.x = self.x
+        # t.transform.translation.y = self.y
+        # t.transform.translation.z = 0.0
+        # t.transform.rotation.x = q[0]
+        # t.transform.rotation.y = q[1]
+        # t.transform.rotation.z = q[2]
+        # t.transform.rotation.w = q[3]
+        # self.tf_broadcaster.sendTransform(t)
 
-        # 추가: base_link → laser_frame
-        laser_tf = TransformStamped()
-        laser_tf.header.stamp = now.to_msg()
-        laser_tf.header.frame_id = 'base_link'
-        laser_tf.child_frame_id = 'laser_frame'
-        laser_tf.transform.translation.x = 0.2
-        laser_tf.transform.translation.y = 0.0
-        laser_tf.transform.translation.z = 0.1
-        laser_tf.transform.rotation.x = 0.0
-        laser_tf.transform.rotation.y = 0.0
-        laser_tf.transform.rotation.z = 0.0
-        laser_tf.transform.rotation.w = 1.0
-        self.tf_broadcaster.sendTransform(laser_tf)
+        # # 추가: base_link → laser_frame
+        # laser_tf = TransformStamped()
+        # laser_tf.header.stamp = now.to_msg()
+        # laser_tf.header.frame_id = 'base_link'
+        # laser_tf.child_frame_id = 'laser_frame'
+        # laser_tf.transform.translation.x = 0.2
+        # laser_tf.transform.translation.y = 0.0
+        # laser_tf.transform.translation.z = 0.1
+        # laser_tf.transform.rotation.x = 0.0
+        # laser_tf.transform.rotation.y = 0.0
+        # laser_tf.transform.rotation.z = 0.0
+        # laser_tf.transform.rotation.w = 1.0
+        # self.tf_broadcaster.sendTransform(laser_tf)
 
-        # 추가: base_link → camera_link
-        cam_tf = TransformStamped()
-        cam_tf.header.stamp = now.to_msg()
-        cam_tf.header.frame_id = 'base_link'
-        cam_tf.child_frame_id = 'camera_link'
-        cam_tf.transform.translation.x = 0.1
-        cam_tf.transform.translation.y = 0.0
-        cam_tf.transform.translation.z = 0.15
-        cam_tf.transform.rotation.x = 0.0
-        cam_tf.transform.rotation.y = 0.0
-        cam_tf.transform.rotation.z = 0.0
-        cam_tf.transform.rotation.w = 1.0
-        self.tf_broadcaster.sendTransform(cam_tf)
+        # # 추가: base_link → camera_link
+        # cam_tf = TransformStamped()
+        # cam_tf.header.stamp = now.to_msg()
+        # cam_tf.header.frame_id = 'base_link'
+        # cam_tf.child_frame_id = 'camera_link'
+        # cam_tf.transform.translation.x = 0.1
+        # cam_tf.transform.translation.y = 0.0
+        # cam_tf.transform.translation.z = 0.15
+        # cam_tf.transform.rotation.x = 0.0
+        # cam_tf.transform.rotation.y = 0.0
+        # cam_tf.transform.rotation.z = 0.0
+        # cam_tf.transform.rotation.w = 1.0
+        # self.tf_broadcaster.sendTransform(cam_tf)
 
     def publish_motor_rpm(self, left_rpm, right_rpm):
         # 실제 센서에서 읽은 값을 그대로 publish (부호 반전 안함)
@@ -173,6 +173,15 @@ class MotorSerialNode(Node):
         msg.left_rpm = left_rpm
         msg.right_rpm = right_rpm
         self.rpm_pub.publish(msg)
+
+    def destroy_node(self):
+        # Send stop command before shutting down
+        try:
+            self.ser.write(b"R0,0\n")
+            self.get_logger().info("Sent stop command to motors before shutdown.")
+        except Exception as e:
+            self.get_logger().warn(f"Failed to send stop command on shutdown: {e}")
+        super().destroy_node()
 
 def main(args=None):
     rclpy.init(args=args)

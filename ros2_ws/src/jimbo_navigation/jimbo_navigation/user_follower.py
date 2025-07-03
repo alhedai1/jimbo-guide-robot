@@ -3,7 +3,6 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, Point
-from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool
 import numpy as np
 import math
@@ -56,6 +55,7 @@ class UserFollower(Node):
         self.safety_status = msg.data
 
     def uwb_callback(self, msg):
+        self.get_logger().info(f"UWB received: x={msg.x}, y={msg.y}")
         z = np.array([msg.x, msg.y])
         now = self.get_clock().now()
         dt = (now - self.kalman_last_time).nanoseconds * 1e-9
@@ -89,6 +89,7 @@ class UserFollower(Node):
         
     def control_loop(self):
         """Main control loop for following user"""
+        self.get_logger().info(f"control_loop: user_position={self.user_position}")
         if not self.safety_status:
             # Safety violation - stop
             self.stop_robot()
@@ -128,9 +129,18 @@ class UserFollower(Node):
         linear_vel = np.clip(linear_vel, -self.max_linear_vel, self.max_linear_vel)
         angular_vel = np.clip(angular_vel, -self.max_angular_vel, self.max_angular_vel)
         
-        # Apply velocity limits based on safety
-        if abs(distance_error) < 0.2:  # Close to target distance
-            linear_vel *= 0.5  # Slow down when close
+        # Improved stopping logic
+        stop_threshold = 0.1  # meters
+        if abs(distance_error) < stop_threshold:
+            linear_vel = 0.0
+        else:
+            if abs(distance_error) < 0.2:
+                linear_vel *= 0.5
+        if (current_distance < 0.5):
+            linear_vel = 0.0
+            angular_vel = 0.0
+        # if abs(linear_vel) < 0.02:
+        #     linear_vel = 0.0
         
         cmd_vel.linear.x = linear_vel
         cmd_vel.angular.z = angular_vel

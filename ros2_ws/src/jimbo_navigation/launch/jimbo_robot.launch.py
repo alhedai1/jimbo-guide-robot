@@ -28,13 +28,13 @@ def generate_launch_description():
     
     enable_motor_arg = DeclareLaunchArgument(
         'enable_motor',
-        default_value='false',
+        default_value='true',
         description='Enable motor control (disable for simulation)'
     )
     
     enable_follower_arg = DeclareLaunchArgument(
         'enable_follower',
-        default_value='false',
+        default_value='true',
         description='Enable user following behavior'
     )
     
