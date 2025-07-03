@@ -14,9 +14,9 @@ class UserFollower(Node):
         super().__init__('user_follower')
         
         # Parameters
-        self.declare_parameter('target_distance', 1.0)      # 1m from user
-        self.declare_parameter('max_linear_velocity', 0.5)  # 0.5 m/s
-        self.declare_parameter('max_angular_velocity', 1.0) # 1.0 rad/s
+        self.declare_parameter('target_distance', 0.5)      # 0.5m from user
+        self.declare_parameter('max_linear_velocity', 0.3)  # 0.3 m/s
+        self.declare_parameter('max_angular_velocity', 0.5) # 0.5 rad/s
         
         self.target_distance = self.get_parameter('target_distance').value
         self.max_linear_vel = self.get_parameter('max_linear_velocity').value
@@ -50,84 +50,6 @@ class UserFollower(Node):
         self.control_timer = self.create_timer(0.1, self.control_loop)  # 10Hz
         
         self.get_logger().info('User Follower initialized')
-    
-    '''def lidar_callback(self, msg):
-        """Process lidar data to detect and track user"""
-        # Simple person detection based on leg detection
-        # This is a simplified approach - you may want to use more sophisticated methods
-        
-        ranges = np.array(msg.ranges)
-        angles = np.linspace(msg.angle_min, msg.angle_max, len(ranges))
-        
-        # Filter out invalid readings
-        valid_indices = np.where((ranges > 0.1) & (ranges < 5.0))[0]
-        valid_ranges = ranges[valid_indices]
-        valid_angles = angles[valid_indices]
-        
-        if len(valid_ranges) == 0:
-            return
-        
-        # Convert to cartesian coordinates
-        x_coords = valid_ranges * np.cos(valid_angles)
-        y_coords = valid_ranges * np.sin(valid_angles)
-        
-        # Simple clustering to find potential people
-        people = self.detect_people(x_coords, y_coords)
-        
-        if people:
-            # Find the closest person (assumed to be the user)
-            closest_person = min(people, key=lambda p: math.sqrt(p[0]**2 + p[1]**2))
-            self.user_position = closest_person
-            
-            # Calculate user velocity (simplified)
-            if self.last_user_position is not None:
-                dt = 0.1  # 10Hz update rate
-                dx = self.user_position[0] - self.last_user_position[0]
-                dy = self.user_position[1] - self.last_user_position[1]
-                self.user_velocity = (dx/dt, dy/dt)
-            
-            self.last_user_position = self.user_position
-        else:
-            self.user_position = None
-            self.user_velocity = None'''
-
-    '''def detect_people(self, x_coords, y_coords):
-        """Simple person detection using clustering"""
-        people = []
-        
-        # Group points that are close together
-        points = list(zip(x_coords, y_coords))
-        clusters = []
-        
-        for point in points:
-            added_to_cluster = False
-            for cluster in clusters:
-                # Check if point is close to any point in cluster
-                for cluster_point in cluster:
-                    distance = math.sqrt((point[0] - cluster_point[0])**2 + 
-                                       (point[1] - cluster_point[1])**2)
-                    if distance < self.person_threshold:
-                        cluster.append(point)
-                        added_to_cluster = True
-                        break
-                if added_to_cluster:
-                    break
-            
-            if not added_to_cluster:
-                clusters.append([point])
-        
-        # Filter clusters that could be people (size and position)
-        for cluster in clusters:
-            if len(cluster) >= 3:  # Minimum points for a person
-                # Calculate cluster center
-                center_x = sum(p[0] for p in cluster) / len(cluster)
-                center_y = sum(p[1] for p in cluster) / len(cluster)
-                
-                # Check if cluster is in front of robot and reasonable distance
-                if center_x > 0.3 and center_x < 3.0:  # Between 30cm and 3m
-                    people.append((center_x, center_y))
-        
-        return people'''
     
     def safety_callback(self, msg):
         """Handle safety status updates"""
