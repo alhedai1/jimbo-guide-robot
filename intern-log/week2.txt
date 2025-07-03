@@ -32,3 +32,11 @@
  - set up uwb sensors. all 4 on 1 usb hub causes crashes. renamed ttyACM* to fixed names based on each sensor's ATTRS{serial}
  - integrated 4 robot uwb (tags) to get position of person uwb (anchor), filtered with kalman
  - can only read uwb data from tags, not anchors
+
+
+## July 3
+# Plan
+ - integrate motor control and uwb sensors
+ - slam using lidar
+
+# Done
