@@ -7,6 +7,7 @@ from std_msgs.msg import Bool
 import numpy as np
 import math
 from typing import Optional, Tuple
+from rclpy.qos import QoSProfile, DurabilityPolicy
 
 class UserFollower(Node):
     def __init__(self):
@@ -40,7 +41,8 @@ class UserFollower(Node):
         self.kalman_last_time = self.get_clock().now()
         
         # Publishers
-        self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
+        qos = QoSProfile(depth=10, durability=DurabilityPolicy.VOLATILE)
+        self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', qos)
         self.filtered_pos_pub = self.create_publisher(Point, "filtered_pos", 10)
         
         # Subscribers
@@ -50,6 +52,10 @@ class UserFollower(Node):
         # Timer for control loop
         self.control_timer = self.create_timer(0.1, self.control_loop)  # 10Hz
         # self.control_timer = self.create_timer(0.05, self.control_loop)  # 20Hz
+
+        self.alpha = 0.2 # cmd filter coefficient
+        self.prev_linear_vel = 0.0
+        self.prev_angular_vel = 0.0
         
         self.get_logger().info('User Follower initialized')
     
@@ -117,38 +123,40 @@ class UserFollower(Node):
         
         # Current distance to user
         current_distance = math.sqrt(self.user_position[0]**2 + self.user_position[1]**2)
+
+        if (current_distance < self.target_distance):
+            return cmd_vel
         
         # Distance error
         distance_error = current_distance - self.target_distance
         
         # Angular error (angle to user)
-        angle_to_user = math.atan2(self.user_position[1], self.user_position[0])
+        angle_to_user = math.atan2(-self.user_position[0], self.user_position[1])
         
         # Simple proportional control
-        linear_vel = 0.5 * distance_error  # P controller for distance
-        angular_vel = 1.0 * angle_to_user  # P controller for angle
+        linear_vel = 0.25 * distance_error * math.cos(angle_to_user)  # P controller for distance
+        angular_vel = 0.5 * angle_to_user  # P controller for angle
         
         # Limit velocities
         linear_vel = np.clip(linear_vel, -self.max_linear_vel, self.max_linear_vel)
         angular_vel = np.clip(angular_vel, -self.max_angular_vel, self.max_angular_vel)
         
-        # Improved stopping logic
-        stop_threshold = 0.1  # meters
-        if abs(distance_error) < stop_threshold:
-            linear_vel = 0.0
-        else:
-            if abs(distance_error) < 0.2:
-                linear_vel *= 0.5
-        if (current_distance < 0.5):
-            linear_vel = 0.0
-            angular_vel = 0.0
-        # if abs(linear_vel) < 0.02:
-        #     linear_vel = 0.0
         
-        cmd_vel.linear.x = linear_vel
-        cmd_vel.angular.z = angular_vel
-        
-        self.get_logger().debug(f'Following user at {current_distance:.2f}m, target: {self.target_distance}m')
+        cmd_vel.linear.x = self.alpha * linear_vel + (1 - self.alpha) * self.prev_linear_vel
+        cmd_vel.angular.z = self.alpha * angular_vel + (1 - self.alpha) * self.prev_angular_vel
+
+        self.prev_linear_vel = cmd_vel.linear.x
+        self.prev_angular_vel = cmd_vel.angular.z
+
+        # Deadzone
+        if abs(cmd_vel.linear.x) < 0.05:
+            cmd_vel.linear.x = 0.0
+        if abs(cmd_vel.angular.z) < 0.05:
+            cmd_vel.angular.z = 0.0
+
+        # add accelerating ramping if necessary
+
+        # self.get_logger().debug(f'Following user at {current_distance:.2f}m, target: {self.target_distance}m')
         
         return cmd_vel
     

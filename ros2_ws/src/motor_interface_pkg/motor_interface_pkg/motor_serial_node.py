@@ -9,6 +9,8 @@ from scipy.spatial.transform import Rotation as R
 from tf2_ros import TransformBroadcaster
 import serial
 import math
+import signal
+import sys
 
 class MotorSerialNode(Node):
     def __init__(self):
@@ -45,6 +47,8 @@ class MotorSerialNode(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
 
         self.timer = self.create_timer(0.05, self.update_loop)  # 20Hz
+
+        signal.signal(signal.SIGINT, self.handle_sigint)
 
     # read Twist command and send to arduino
     def cmd_callback(self, msg: Twist):
@@ -174,14 +178,13 @@ class MotorSerialNode(Node):
         msg.right_rpm = right_rpm
         self.rpm_pub.publish(msg)
 
-    def destroy_node(self):
-        # Send stop command before shutting down
+    def handle_sigint(self, signum, frame):
         try:
             self.ser.write(b"R0,0\n")
-            self.get_logger().info("Sent stop command to motors before shutdown.")
+            self.get_logger().info("Sent stop command to motors on SIGINT.")
         except Exception as e:
-            self.get_logger().warn(f"Failed to send stop command on shutdown: {e}")
-        super().destroy_node()
+            self.get_logger().warn(f"Failed to send stop command on SIGINT: {e}")
+        sys.exit(0)
 
 def main(args=None):
     rclpy.init(args=args)
