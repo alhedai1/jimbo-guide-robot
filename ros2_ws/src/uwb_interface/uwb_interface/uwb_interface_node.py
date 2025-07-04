@@ -32,45 +32,85 @@ class UWBInterfaceNode(Node):
         baudrate = self.get_parameter('baudrate').get_parameter_value().integer_value
 
         # Open serial connections
-        self.tags = [serial.Serial(port, baudrate=baudrate, timeout=1) for port in tag_ports]
+        # self.tags = [serial.Serial(port, baudrate=baudrate, timeout=1) for port in tag_ports]
+        self.tags = []
+        for i, port in enumerate(tag_ports):
+            try:
+                tag = serial.Serial(port, baudrate=baudrate, timeout=1)
+                self.tags.append(tag)
+                self.get_logger().info(f"Connected to UWB device {i} on {port}")
+            except Exception as e:
+                self.get_logger().error(f"Failed to connect to {port}: {e}")
+                # Create a dummy serial object to maintain indexing
+                self.tags.append(None)
         time.sleep(2)
+
+        # Initialize UWB devices
+        for i, tag in enumerate(self.tags):
+            if tag is not None:
+                try:
+                    # Send initialization commands
+                    tag.write(b'reset\r')
+                    time.sleep(0.5)
+                    
+                    tag.write(b'\r')
+                    tag.write(b'\r')
+                    time.sleep(0.5)
+
+                    # Clear any existing data
+                    tag.reset_input_buffer()
+                    tag.reset_output_buffer()
+                    time.sleep(0.5)
+                    
+                    tag.write(b'lec\r')
+                    time.sleep(0.5)
+
+                    self.get_logger().info(f"Initialized UWB device {i}")
+                except Exception as e:
+                    self.get_logger().error(f"Failed to initialize UWB device {i}: {e}")
 
         self.distances = [0.0] * len(self.tags)
         self.dist_pub = self.create_publisher(Float32MultiArray, 'uwb_distances', 10)
         self.pos_pub = self.create_publisher(Point, 'uwb_rel_position', 10)
         self.timer = self.create_timer(0.1, self.request_sensor_data)  # 10Hz
 
-        for tag in self.tags:
-            tag.write(b'reset\r')
-        time.sleep(1)
-
-        for tag in self.tags:
-            tag.write(b'\r')
-            tag.write(b'\r')
-        time.sleep(1)
-
-        for tag in self.tags:
-            tag.reset_input_buffer()
-            tag.reset_output_buffer()
-        time.sleep(1)
-        
-        for tag in self.tags:
-            tag.write(b'lec\r')
-        time.sleep(1)
-
-        # self.tag.write(b'lec\r') # should query anchors on robot, not tag (tag on person, powered by battery)
-
     def request_sensor_data(self):
+        # Read from all serial ports with non-blocking approach
         for i, tag in enumerate(self.tags):
+            if tag is None:
+                continue  # Skip failed connections
+                
             try:
-                response = tag.readline().decode('utf-8', errors='ignore').strip() # check output format
-                self.parse_response(response, i)
+                # response = tag.readline().decode('utf-8', errors='ignore').strip() # check output format
+                # self.parse_response(response, i)
+                # Check if data is available
+                if tag.in_waiting > 0:
+                    # Read all available lines
+                    while tag.in_waiting > 0:
+                        response = tag.readline().decode('utf-8', errors='ignore').strip()
+                        if response:  # Only process non-empty lines
+                            self.parse_response(response, i)
+                else:
+                    # If no data available, try a quick read with short timeout
+                    tag.timeout = 0.01  # 10ms timeout
+                    response = tag.readline().decode('utf-8', errors='ignore').strip()
+                    if response:
+                        self.parse_response(response, i)
+                    tag.timeout = 1  # Reset to original timeout
             except Exception as e:
                 self.get_logger().error(f"Serial error on tag {i}: {e}")
+                # Try to reset the connection
+                try:
+                    tag.reset_input_buffer()
+                    tag.reset_output_buffer()
+                except:
+                    pass
+        
         # Publish distances
         dist_msg = Float32MultiArray()
         dist_msg.data = self.distances
         self.dist_pub.publish(dist_msg)
+        
         # Estimate position
         pos = self.estimate_tag_position(tags, self.distances)
         pos_msg = Point()
@@ -101,13 +141,22 @@ class UWBInterfaceNode(Node):
                 self.get_logger().error(f"Serial error on tag {tag_index}: {e}")
     
     def estimate_tag_position(self, tags, distances):
+        # Check for valid distances
+        # if any(d <= 0 or d > 10 for d in distances):  # 10m max reasonable distance
+        #     return [0.0, 0.0]  # Return center if invalid
+        
         def loss(p):
             x, y = p
             return sum((np.linalg.norm(np.array([x, y]) - np.array(tag)) - d) ** 2 for tag, d in zip(tags, distances))
 
         initial_guess = [0.0, 0.0]
-        result = minimize(loss, initial_guess)
-        return result.x
+        result = minimize(loss, initial_guess, method='L-BFGS-B', 
+                         bounds=[(-5, 5), (-5, 5)])  # Reasonable bounds
+        
+        if result.success:
+            return result.x
+        # else:
+        #     return [0.0, 0.0]  # Return center if optimization fails
 
     def destroy_node(self):
         for tag in self.tags:

@@ -31,6 +31,8 @@ class UserFollower(Node):
         self.kalman_P = np.eye(4)
         self.kalman_Q = np.eye(4) * 0.01  # Process noise
         self.kalman_R = np.eye(2) * 0.1   # Measurement noise
+        # self.kalman_Q = np.eye(4) * 0.01   # Very low process noise
+        # self.kalman_R = np.eye(2) * 0.2    # High measurement noise
         self.kalman_F = np.eye(4)
         self.kalman_H = np.zeros((2, 4))
         self.kalman_H[0, 0] = 1
@@ -47,6 +49,7 @@ class UserFollower(Node):
         
         # Timer for control loop
         self.control_timer = self.create_timer(0.1, self.control_loop)  # 10Hz
+        # self.control_timer = self.create_timer(0.05, self.control_loop)  # 20Hz
         
         self.get_logger().info('User Follower initialized')
     
