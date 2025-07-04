@@ -30,8 +30,10 @@ class UserFollower(Node):
         self.kalman_initialized = False
         self.kalman_state = np.zeros(4)  # [x, y, vx, vy]
         self.kalman_P = np.eye(4)
-        self.kalman_Q = np.eye(4) * 0.01  # Process noise
-        self.kalman_R = np.eye(2) * 0.1   # Measurement noise
+        # self.kalman_Q = np.eye(4) * 0.01  # Process noise
+        # self.kalman_R = np.eye(2) * 0.1   # Measurement noise
+        self.kalman_Q = np.eye(4) * 0.005   # Lower process noise
+        self.kalman_R = np.eye(2) * 0.2     # Higher measurement noise
         # self.kalman_Q = np.eye(4) * 0.01   # Very low process noise
         # self.kalman_R = np.eye(2) * 0.2    # High measurement noise
         self.kalman_F = np.eye(4)
@@ -154,7 +156,7 @@ class UserFollower(Node):
         if abs(cmd_vel.angular.z) < 0.05:
             cmd_vel.angular.z = 0.0
 
-        # add accelerating ramping if necessary
+        # add acceleration ramping if necessary
 
         # self.get_logger().debug(f'Following user at {current_distance:.2f}m, target: {self.target_distance}m')
         
