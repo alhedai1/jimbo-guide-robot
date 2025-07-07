@@ -7,6 +7,8 @@
   <!-- 15 cm spacing between wheels -->
   <!-- 2 cm below base -->
   <!-- Base link (just a point, no visible body) -->
+  <link name="base_footprint">
+  </link>
   <link name="robot_base_link">
     <visual>
       <geometry>
@@ -93,6 +95,12 @@
     </visual>
   </link>
   <!-- Joints -->
+  <joint name="robot_base_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="robot_base_link"/>
+    <origin rpy="0 0 0" xyz="0 0 0.1135"/>
+    <axis xyz="0 1 0"/>
+  </joint>
   <!-- Left wheel joint: left of robot_base_link -->
   <joint name="left_wheel_joint" type="continuous">
     <parent link="robot_base_link"/>
