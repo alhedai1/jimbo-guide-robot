@@ -31,6 +31,12 @@ def generate_launch_description():
         default_value='true',
         description='Enable motor control (disable for simulation)'
     )
+
+    enable_safety_arg = DeclareLaunchArgument(
+        'enable_safety',
+        default_value='false',
+        description='Enable safety monitor'
+    )
     
     enable_follower_arg = DeclareLaunchArgument(
         'enable_follower',
@@ -82,22 +88,23 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('enable_motor'))
     )
     
-    # Safety monitor node (always enabled)
-    safety_node = Node(
-        package='jimbo_navigation',
-        executable='safety_monitor',
-        name='safety_monitor',
-        parameters=[{
-            'emergency_stop_distance': 0.3,
-            'slow_down_distance': 0.5,
-            'warning_distance': 0.8
-        }],
-        remappings=[
-            ('cmd_vel', 'cmd_vel_raw'),
-            ('cmd_vel_filtered', 'cmd_vel')
-        ],
-        output='screen'
-    )
+    # # Safety monitor node (always enabled)
+    # safety_node = Node(
+    #     package='jimbo_navigation',
+    #     executable='safety_monitor',
+    #     name='safety_monitor',
+    #     parameters=[{
+    #         'emergency_stop_distance': 0.3,
+    #         'slow_down_distance': 0.5,
+    #         'warning_distance': 0.8
+    #     }],
+    #     remappings=[
+    #         ('cmd_vel', 'cmd_vel_raw'),
+    #         ('cmd_vel_filtered', 'cmd_vel')
+    #     ],
+    #     output='screen',
+    #     condition=IfCondition(LaunchConfiguration('enable_safety'))
+    # )
     
     # User follower node (conditional)
     follower_node = Node(
@@ -108,7 +115,6 @@ def generate_launch_description():
             'target_distance': 1.0,
             'max_linear_velocity': 0.5,
             'max_angular_velocity': 1.0,
-            'person_detection_threshold': 0.3
         }],
         output='screen',
         condition=IfCondition(LaunchConfiguration('enable_follower'))
@@ -184,17 +190,17 @@ def generate_launch_description():
         use_sim_time_arg,
         enable_realsense_arg,
         enable_motor_arg,
+        # enable_safety_arg,
         enable_follower_arg,
-        enable_navigation_arg,
+        # enable_navigation_arg,
         enable_rviz_arg,
-        map_file_arg,
+        # map_file_arg,
         robot_description_launch,
         motor_node,
-        safety_node,
         follower_node,
         realsense_launch,
         lidar_launch,
         uwb_launch,
-        nav2_bringup_launch,
+        # nav2_bringup_launch,
         rviz_node
     ])

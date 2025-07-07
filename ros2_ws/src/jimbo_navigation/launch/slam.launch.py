@@ -35,7 +35,7 @@ def generate_launch_description():
         name='slam_toolbox',
         parameters=[{
             'use_sim_time': LaunchConfiguration('use_sim_time'),
-            'base_frame': 'base_link',
+            'base_frame': 'base_footprint',
             'map_frame': 'map',
             'odom_frame': 'odom',
             'map_update_interval': 5.0,

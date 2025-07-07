@@ -66,7 +66,7 @@ class UserFollower(Node):
         self.safety_status = msg.data
 
     def uwb_callback(self, msg):
-        self.get_logger().info(f"UWB received: x={msg.x}, y={msg.y}")
+        # self.get_logger().info(f"UWB received: x={msg.x}, y={msg.y}")
         z = np.array([msg.x, msg.y])
         now = self.get_clock().now()
         dt = (now - self.kalman_last_time).nanoseconds * 1e-9
@@ -100,7 +100,7 @@ class UserFollower(Node):
         
     def control_loop(self):
         """Main control loop for following user"""
-        self.get_logger().info(f"control_loop: user_position={self.user_position}")
+        # self.get_logger().info(f"control_loop: user_position={self.user_position}")
         if not self.safety_status:
             # Safety violation - stop
             self.stop_robot()

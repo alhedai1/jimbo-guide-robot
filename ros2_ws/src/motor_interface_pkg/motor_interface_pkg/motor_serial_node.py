@@ -52,6 +52,7 @@ class MotorSerialNode(Node):
 
     # read Twist command and send to arduino
     def cmd_callback(self, msg: Twist):
+        self.get_logger().info(f"Received cmd_vel: {msg}")
         linear = msg.linear.x
         angular = msg.angular.z
 
@@ -117,7 +118,7 @@ class MotorSerialNode(Node):
         odom = Odometry()
         odom.header.stamp = now.to_msg()
         odom.header.frame_id = 'odom'
-        odom.child_frame_id = 'robot_base_link'
+        odom.child_frame_id = 'base_footprint'
         odom.pose.pose.position.x = self.x
         odom.pose.pose.position.y = self.y
         odom.pose.pose.orientation.x = q[0]
@@ -127,13 +128,34 @@ class MotorSerialNode(Node):
         odom.twist.twist.linear.x = v
         odom.twist.twist.angular.z = w
 
+        # Add covariance matrices for navigation
+        # Pose covariance (6x6 matrix)
+        odom.pose.covariance = [
+            0.1, 0.0, 0.0, 0.0, 0.0, 0.0,  # x
+            0.0, 0.1, 0.0, 0.0, 0.0, 0.0,  # y
+            0.0, 0.0, 0.1, 0.0, 0.0, 0.0,  # z
+            0.0, 0.0, 0.0, 0.1, 0.0, 0.0,  # roll
+            0.0, 0.0, 0.0, 0.0, 0.1, 0.0,  # pitch
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.1   # yaw
+        ]
+        
+        # Twist covariance (6x6 matrix)
+        odom.twist.covariance = [
+            0.1, 0.0, 0.0, 0.0, 0.0, 0.0,  # linear x
+            0.0, 0.1, 0.0, 0.0, 0.0, 0.0,  # linear y
+            0.0, 0.0, 0.1, 0.0, 0.0, 0.0,  # linear z
+            0.0, 0.0, 0.0, 0.1, 0.0, 0.0,  # angular x
+            0.0, 0.0, 0.0, 0.0, 0.1, 0.0,  # angular y
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.1   # angular z
+        ]
+
         self.odom_pub.publish(odom)
 
-        # TF 브로드캐스트
+        # TF 브로드캐스트 - odom to base_footprint (dynamic transform)
         t = TransformStamped()
         t.header.stamp = now.to_msg()
         t.header.frame_id = 'odom'
-        t.child_frame_id = 'robot_base_link'
+        t.child_frame_id = 'base_footprint'
         t.transform.translation.x = self.x
         t.transform.translation.y = self.y
         t.transform.translation.z = 0.0
@@ -143,19 +165,19 @@ class MotorSerialNode(Node):
         t.transform.rotation.w = q[3]
         self.tf_broadcaster.sendTransform(t)
 
-        # 추가: base_link → laser_frame
-        laser_tf = TransformStamped()
-        laser_tf.header.stamp = now.to_msg()
-        laser_tf.header.frame_id = 'robot_base_link'
-        laser_tf.child_frame_id = 'laser_frame'
-        laser_tf.transform.translation.x = 0.2
-        laser_tf.transform.translation.y = 0.0
-        laser_tf.transform.translation.z = 0.1
-        laser_tf.transform.rotation.x = 0.0
-        laser_tf.transform.rotation.y = 0.0
-        laser_tf.transform.rotation.z = 0.0
-        laser_tf.transform.rotation.w = 1.0
-        self.tf_broadcaster.sendTransform(laser_tf)
+        # # 추가: base_link → laser_frame
+        # laser_tf = TransformStamped()
+        # laser_tf.header.stamp = now.to_msg()
+        # laser_tf.header.frame_id = 'robot_base_link'
+        # laser_tf.child_frame_id = 'laser_frame'
+        # laser_tf.transform.translation.x = 0.2
+        # laser_tf.transform.translation.y = 0.0
+        # laser_tf.transform.translation.z = 0.1
+        # laser_tf.transform.rotation.x = 0.0
+        # laser_tf.transform.rotation.y = 0.0
+        # laser_tf.transform.rotation.z = 0.0
+        # laser_tf.transform.rotation.w = 1.0
+        # self.tf_broadcaster.sendTransform(laser_tf)
 
         # # 추가: base_link → camera_link
         # cam_tf = TransformStamped()

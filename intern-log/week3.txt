@@ -2,6 +2,9 @@
 ## July 7
 # Plan
  - simulate robot motion on rviz using odometry data
- - 
 
 # Done
+ - simulated robot motion in rviz based on odometry
+ - robot moves to follow person tag
+ - issue: had extra argument in launch file, which was not present in node file -> caused errors
+ - odom frame is top frame -> points to base_footprint -> rest of robot
