@@ -10,7 +10,7 @@
   <link name="robot_base_link">
     <visual>
       <geometry>
-        <box size="0.01 0.01 0.01"/>
+        <box size="0.3 0.2 0.1"/>
       </geometry>
       <material name="blue">
         <color rgba="0 0 0.8 1"/>
@@ -22,8 +22,8 @@
       </geometry>
     </collision>
     <inertial>
-      <mass value="0.1"/>
-      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+      <mass value="3.0"/>
+      <inertia ixx="0.0125" ixy="0" ixz="0" iyy="0.025" iyz="0" izz="0.0325"/>
     </inertial>
   </link>
   <!-- Left wheel -->
@@ -44,8 +44,8 @@
       </geometry>
     </collision>
     <inertial>
-      <mass value="0.5"/>
-      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+      <mass value="0.3"/>
+      <inertia ixx="0.000025" ixy="0" ixz="0" iyy="0.000025" iyz="0" izz="0.000008"/>
     </inertial>
   </link>
   <!-- Right wheel -->
@@ -66,8 +66,8 @@
       </geometry>
     </collision>
     <inertial>
-      <mass value="0.5"/>
-      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+      <mass value="0.3"/>
+      <inertia ixx="0.000025" ixy="0" ixz="0" iyy="0.000025" iyz="0" izz="0.000008"/>
     </inertial>
   </link>
   <!-- LiDAR sensor (now with a simple visual) -->
@@ -97,26 +97,26 @@
   <joint name="left_wheel_joint" type="continuous">
     <parent link="robot_base_link"/>
     <child link="left_wheel"/>
-    <origin rpy="0 0 0" xyz="0 0.075 0"/>
+    <origin rpy="0 0 0" xyz="0 0.12 -0.05"/>
     <axis xyz="0 1 0"/>
   </joint>
   <!-- Right wheel joint: right of robot_base_link -->
   <joint name="right_wheel_joint" type="continuous">
     <parent link="robot_base_link"/>
     <child link="right_wheel"/>
-    <origin rpy="0 0 0" xyz="0 -0.075 0"/>
+    <origin rpy="0 0 0" xyz="0 -0.12 -0.05"/>
     <axis xyz="0 1 0"/>
   </joint>
   <!-- LiDAR joint: left and above wheels -->
   <joint name="lidar_joint" type="fixed">
     <parent link="robot_base_link"/>
     <child link="robot_lidar_link"/>
-    <origin rpy="0 0 0" xyz="0 0.105 0.15"/>
+    <origin rpy="0 0 0" xyz="0.12 0 0.06"/>
   </joint>
   <!-- Camera joint: left of lidar and below base -->
   <joint name="camera_joint" type="fixed">
     <parent link="robot_base_link"/>
     <child link="robot_camera_link"/>
-    <origin rpy="0 0 0" xyz="0.05 0.255 -0.02"/>
+    <origin rpy="0 0 0" xyz="0.12 0 0.08"/>
   </joint>
 </robot>
