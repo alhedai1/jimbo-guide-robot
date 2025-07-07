@@ -40,3 +40,13 @@
  - slam using lidar
 
 # Done
+ - integrating motor control and uwb sensors
+ - issues: position tracking is slow/laggy
+ - motor issues: don't stop when ctrl+c, doesn't respond well to uwb (maybe not quite in sync)
+
+
+## July 4
+# Plan
+ - fully integrate motor control and uwb sensors
+ - accurate uwb position tracking
+ - accurate motor rotation based on uwb tracking

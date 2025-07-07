@@ -1,0 +1,7 @@
+
+## July 7
+# Plan
+ - simulate robot motion on rviz using odometry data
+ - 
+
+# Done
