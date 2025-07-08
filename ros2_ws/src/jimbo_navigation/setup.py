@@ -17,6 +17,7 @@ setup(
         (os.path.join('share', package_name, 'urdf'), glob('urdf/*.urdf.xacro')),
         # Include config files
         (os.path.join('share', package_name, 'config'), glob('config/*.rviz')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
         # Include launch files
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         # Include maps directory

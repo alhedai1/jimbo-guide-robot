@@ -68,6 +68,13 @@ class UserFollower(Node):
 
         self.nav = BasicNavigator()
         self.nav.waitUntilNav2Active()
+
+        # TF2 buffer and listener for transforms
+        from tf2_ros import Buffer, TransformListener
+        import tf2_ros
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+        self.tf_timeout = rclpy.duration.Duration(seconds=0.5)
         
         self.get_logger().info('User Follower initialized')
     
@@ -123,19 +130,39 @@ class UserFollower(Node):
             return
         
         # Calculate control commands
-        cmd_vel = self.calculate_following_command()
-        self.cmd_vel_pub.publish(cmd_vel)
+        # cmd_vel = self.calculate_following_command()
+        # self.cmd_vel_pub.publish(cmd_vel)
 
         # # Navigate to user
-        # self.navigate_to_user()
+        self.navigate_to_user()
     
     def navigate_to_user(self):
-        x_goal = self.user_position[0] + 0.5
-        y_goal = self.user_position[1]
+        # Transform user position from robot frame to map frame
+        try:
+            # Get transform from base_footprint to map
+            now = rclpy.time.Time()
+            trans = self.tf_buffer.lookup_transform(
+                'map', 'base_footprint', now, timeout=self.tf_timeout)
+            # User position in robot frame
+            user_x_robot = self.user_position[0] + 0.5
+            user_y_robot = self.user_position[1]
+            # Transform to map frame
+            import tf_transformations
+            translation = trans.transform.translation
+            rotation = trans.transform.rotation
+            # Convert quaternion to euler
+            quat = [rotation.x, rotation.y, rotation.z, rotation.w]
+            _, _, yaw = tf_transformations.euler_from_quaternion(quat)
+            # Rotate and translate
+            x_goal = translation.x + user_x_robot * math.cos(yaw) - user_y_robot * math.sin(yaw)
+            y_goal = translation.y + user_x_robot * math.sin(yaw) + user_y_robot * math.cos(yaw)
+        except Exception as e:
+            self.get_logger().warn(f"TF transform failed: {e}")
+            return
 
         if (not hasattr(self, 'last_goal') or math.hypot(x_goal - self.last_goal[0], y_goal - self.last_goal[1]) > 0.2):
             goal_pose = PoseStamped()
-            goal_pose.header.frame_id = 'base_footprint'
+            goal_pose.header.frame_id = 'map'
             goal_pose.header.stamp = self.get_clock().now().to_msg()
             goal_pose.pose.position.x = x_goal
             goal_pose.pose.position.y = y_goal

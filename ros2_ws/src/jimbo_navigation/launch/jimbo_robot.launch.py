@@ -58,7 +58,7 @@ def generate_launch_description():
     
     map_file_arg = DeclareLaunchArgument(
         'map',
-        default_value=[FindPackageShare('jimbo_navigation'), '/maps/my_map.yaml'],
+        default_value=[FindPackageShare('jimbo_navigation'), '/maps/generated_map.yaml'],
         description='Path to map file (for navigation)'
     )
     
@@ -169,9 +169,13 @@ def generate_launch_description():
             '/launch/bringup_launch.py'
         ]),
         launch_arguments={
-            # 'map': LaunchConfiguration('map'),
+            'map': LaunchConfiguration('map'),
             'use_sim_time': LaunchConfiguration('use_sim_time'),
-            'params_file': [FindPackageShare('jimbo_navigation'), '/config/nav2_params.yaml']
+            'params_file': PathJoinSubstitution([
+                FindPackageShare('jimbo_navigation'),
+                'config',
+                'nav2_params.yaml'
+            ])
         }.items(),
         condition=IfCondition(LaunchConfiguration('enable_navigation'))
     )
@@ -194,7 +198,7 @@ def generate_launch_description():
         enable_follower_arg,
         enable_navigation_arg,
         enable_rviz_arg,
-        # map_file_arg,
+        map_file_arg,
         robot_description_launch,
         motor_node,
         follower_node,
