@@ -70,7 +70,7 @@ class UWBInterfaceNode(Node):
                     self.get_logger().error(f"Failed to initialize UWB device {i}: {e}")
 
         self.distances = [0.0] * len(self.tags)
-        self.dist_pub = self.create_publisher(Float32MultiArray, 'uwb_distances', 10)
+        # self.dist_pub = self.create_publisher(Float32MultiArray, 'uwb_distances', 10)
         self.pos_pub = self.create_publisher(Point, 'uwb_rel_position', 10)
         self.timer = self.create_timer(0.1, self.request_sensor_data)  # 10Hz
 
@@ -107,9 +107,9 @@ class UWBInterfaceNode(Node):
                     pass
         
         # Publish distances
-        dist_msg = Float32MultiArray()
-        dist_msg.data = self.distances
-        self.dist_pub.publish(dist_msg)
+        # dist_msg = Float32MultiArray()
+        # dist_msg.data = self.distances
+        # self.dist_pub.publish(dist_msg)
         
         # Estimate position
         pos = self.estimate_tag_position(tags, self.distances)
@@ -119,14 +119,14 @@ class UWBInterfaceNode(Node):
         pos_msg.z = 0.0  # Assuming 2D position
         self.pos_pub.publish(pos_msg)
 
-        robot_center = np.mean(tags, axis=0)
-        distance_to_person = np.linalg.norm(np.array(pos) - robot_center)
+        # robot_center = np.mean(tags, axis=0)
+        # distance_to_person = np.linalg.norm(np.array(pos) - robot_center)
 
-        if not hasattr(self, 'center_dist_pub'):
-            self.center_dist_pub = self.create_publisher(Float32, 'uwb_person_distance', 10)
-        dist_msg = Float32()
-        dist_msg.data = float(distance_to_person)
-        self.center_dist_pub.publish(dist_msg)
+        # if not hasattr(self, 'center_dist_pub'):
+        #     self.center_dist_pub = self.create_publisher(Float32, 'uwb_person_distance', 10)
+        # dist_msg = Float32()
+        # dist_msg.data = float(distance_to_person)
+        # self.center_dist_pub.publish(dist_msg)
 
     def parse_response(self, line, tag_index):
         # for line in response.splitlines():

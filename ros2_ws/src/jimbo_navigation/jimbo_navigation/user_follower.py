@@ -2,12 +2,14 @@
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, Point
+from geometry_msgs.msg import Twist, Point, PoseStamped
 from std_msgs.msg import Bool
 import numpy as np
 import math
 from typing import Optional, Tuple
 from rclpy.qos import QoSProfile, DurabilityPolicy
+from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
+
 
 class UserFollower(Node):
     def __init__(self):
@@ -15,15 +17,20 @@ class UserFollower(Node):
         
         # Parameters
         self.declare_parameter('target_distance', 0.5)      # 0.5m from user
+        self.declare_parameter('target_position', (-0.5, 0.0)) # Target position of person relative to robot (x, y), (0.5m behind robot)
+        self.declare_parameter('target_angle', math.pi)  # Target angle of person relative to robot (radians), 180.0 means directly behind
         self.declare_parameter('max_linear_velocity', 0.3)  # 0.3 m/s
         self.declare_parameter('max_angular_velocity', 0.5) # 0.5 rad/s
         
         self.target_distance = self.get_parameter('target_distance').value
+        self.target_position = self.get_parameter('target_position').value 
+        self.target_angle = self.get_parameter('target_angle').value
         self.max_linear_vel = self.get_parameter('max_linear_velocity').value
         self.max_angular_vel = self.get_parameter('max_angular_velocity').value
         
         # State variables
         self.user_position: Optional[Tuple[float, float]] = None
+        self.user_heading: Optional[float] = 0.0  # Not used currently, assumed to be 0
         self.safety_status = True
         
         # Kalman filter state for user position [x, y, vx, vy]
@@ -45,7 +52,7 @@ class UserFollower(Node):
         # Publishers
         qos = QoSProfile(depth=10, durability=DurabilityPolicy.VOLATILE)
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', qos)
-        self.filtered_pos_pub = self.create_publisher(Point, "filtered_pos", 10)
+        self.filtered_pos_pub = self.create_publisher(Point, "filtered_pos", 10) # debugging
         
         # Subscribers
         self.safety_sub = self.create_subscription(Bool, 'safety_status', self.safety_callback, 10)
@@ -58,6 +65,9 @@ class UserFollower(Node):
         self.alpha = 0.2 # cmd filter coefficient
         self.prev_linear_vel = 0.0
         self.prev_angular_vel = 0.0
+
+        self.nav = BasicNavigator()
+        self.nav.waitUntilNav2Active()
         
         self.get_logger().info('User Follower initialized')
     
@@ -96,11 +106,11 @@ class UserFollower(Node):
         self.kalman_P = (np.eye(4) - K @ self.kalman_H) @ self.kalman_P
 
         self.user_position = (self.kalman_state[0], self.kalman_state[1])
+        # Relative position of person from robot
+        self.user_position = (self.user_position[1], self.user_position[0])  # x - forward, y - right (ROS convention)
         self.filtered_pos_pub.publish(Point(x=self.user_position[0], y=self.user_position[1], z=0.0))
         
-    def control_loop(self):
-        """Main control loop for following user"""
-        # self.get_logger().info(f"control_loop: user_position={self.user_position}")
+    def control_loop(self): # 10 Hz
         if not self.safety_status:
             # Safety violation - stop
             self.stop_robot()
@@ -115,7 +125,25 @@ class UserFollower(Node):
         # Calculate control commands
         cmd_vel = self.calculate_following_command()
         self.cmd_vel_pub.publish(cmd_vel)
+
+        # # Navigate to user
+        # self.navigate_to_user()
     
+    def navigate_to_user(self):
+        x_goal = self.user_position[0] + 0.5
+        y_goal = self.user_position[1]
+
+        if (not hasattr(self, 'last_goal') or math.hypot(x_goal - self.last_goal[0], y_goal - self.last_goal[1]) > 0.2):
+            goal_pose = PoseStamped()
+            goal_pose.header.frame_id = 'base_footprint'
+            goal_pose.header.stamp = self.get_clock().now().to_msg()
+            goal_pose.pose.position.x = x_goal
+            goal_pose.pose.position.y = y_goal
+            goal_pose.pose.position.z = 0.0
+            goal_pose.pose.orientation.w = 1.0  # No rotation
+            self.nav.goToPose(goal_pose)
+            self.last_goal = (x_goal, y_goal)
+
     def calculate_following_command(self):
         """Calculate velocity commands to follow user"""
         cmd_vel = Twist()
@@ -123,17 +151,36 @@ class UserFollower(Node):
         if self.user_position is None:
             return cmd_vel
         
+        # Target position of person in robot frame: (-0.5, 0)
+        x_goal = self.user_position[0] + 0.5
+        y_goal = self.user_position[1] 
+        
+        # # Error in position
+        # error_x = self.user_position[0] - target_x
+        # error_y = self.user_position[1] - target_y
+
+        # # Distance error
+        # distance_error = math.sqrt(error_x**2 + error_y**2)
+        
         # Current distance to user
         current_distance = math.sqrt(self.user_position[0]**2 + self.user_position[1]**2)
 
-        if (current_distance < self.target_distance):
-            return cmd_vel
+        # if (current_distance < self.target_distance):
+        #     return cmd_vel # Stop moving if too close
+        
+        # Optional: if too close, move away to maintain fixed distance
         
         # Distance error
         distance_error = current_distance - self.target_distance
         
         # Angular error (angle to user)
-        angle_to_user = math.atan2(-self.user_position[0], self.user_position[1])
+        angle_to_user = math.atan2(-self.user_position[1], self.user_position[0])
+
+        if (abs(distance_error) < 0.05 and abs(angle_to_user) < 0.05):
+            # stop moving
+            cmd_vel.linear.x = 0.0
+            cmd_vel.angular.z = 0.0
+            return cmd_vel
         
         # Simple proportional control
         linear_vel = 0.25 * distance_error * math.cos(angle_to_user)  # P controller for distance

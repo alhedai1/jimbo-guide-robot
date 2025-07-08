@@ -46,7 +46,7 @@ def generate_launch_description():
     
     enable_navigation_arg = DeclareLaunchArgument(
         'enable_navigation',
-        default_value='false',
+        default_value='true',
         description='Enable autonomous navigation'
     )
     
@@ -169,7 +169,7 @@ def generate_launch_description():
             '/launch/bringup_launch.py'
         ]),
         launch_arguments={
-            'map': LaunchConfiguration('map'),
+            # 'map': LaunchConfiguration('map'),
             'use_sim_time': LaunchConfiguration('use_sim_time'),
             'params_file': [FindPackageShare('jimbo_navigation'), '/config/nav2_params.yaml']
         }.items(),
@@ -192,7 +192,7 @@ def generate_launch_description():
         enable_motor_arg,
         # enable_safety_arg,
         enable_follower_arg,
-        # enable_navigation_arg,
+        enable_navigation_arg,
         enable_rviz_arg,
         # map_file_arg,
         robot_description_launch,
@@ -201,6 +201,6 @@ def generate_launch_description():
         realsense_launch,
         lidar_launch,
         uwb_launch,
-        # nav2_bringup_launch,
+        nav2_bringup_launch,
         rviz_node
     ])
