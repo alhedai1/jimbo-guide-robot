@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray, Float32
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import Point, TransformStamped
 import serial
 import time
 import numpy as np
@@ -141,9 +141,9 @@ class UWBInterfaceNode(Node):
         self.pos_pub.publish(pos_msg)
 
         # Publish TF of person position relative to robot
-        transform = TransformBroadcaster.TransformStamped()
+        transform = TransformStamped()
         transform.header.stamp = self.get_clock().now().to_msg()
-        transform.header.frame_id = 'base_footprint'
+        transform.header.frame_id = 'robot_base_link'
         transform.child_frame_id = 'uwb_person'
         transform.transform.translation.x = pos_msg.x
         transform.transform.translation.y = pos_msg.y

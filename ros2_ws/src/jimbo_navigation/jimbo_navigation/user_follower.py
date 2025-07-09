@@ -9,6 +9,7 @@ import math
 from typing import Optional, Tuple
 from rclpy.qos import QoSProfile, DurabilityPolicy
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
+import tf_transformations
 
 
 class UserFollower(Node):
@@ -116,7 +117,6 @@ class UserFollower(Node):
             user_x_robot = self.user_position[0] + 0.5
             user_y_robot = self.user_position[1]
             # Transform to map frame
-            import tf_transformations
             translation = trans.transform.translation
             rotation = trans.transform.rotation
             # Convert quaternion to euler
