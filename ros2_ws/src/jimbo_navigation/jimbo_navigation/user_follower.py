@@ -54,7 +54,7 @@ class UserFollower(Node):
         self.prev_angular_vel = 0.0
 
         self.nav = BasicNavigator()
-        # self.nav.waitUntilNav2Active()
+        self.nav.waitUntilNav2Active()
 
         # TF2 buffer and listener for transforms
         self.tf_buffer = Buffer()
@@ -119,6 +119,7 @@ class UserFollower(Node):
             q = quaternion_from_euler(0.0, 0.0, 0.0)  # No rotation
             goal_pose.pose.orientation = Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
 
+            self.get_logger().info(f"BEFORE SENDING GOAL")
             self.nav.goToPose(goal_pose)
             self.get_logger().info(f"Sent goal to ({goal_global_x:.2f}, {goal_global_y:.2f})")
 

@@ -198,20 +198,49 @@ def generate_launch_description():
             parameters=[LaunchConfiguration('nav2_params_file')],
         )
     
-    nav2_bt_navigator_node = Node(package='nav2_bt_navigator',
+    nav2_bt_navigator_node = Node(
+            package='nav2_bt_navigator',
             executable='bt_navigator',
             name='bt_navigator',
             output='screen',
             parameters=[LaunchConfiguration('nav2_params_file')],
         )
+
+    nav2_planner_server_node = Node(
+        package='nav2_planner',
+        executable='planner_server',
+        name='planner_server',
+        output='screen',
+        parameters=[LaunchConfiguration('nav2_params_file')],
+    )
+
+    recoveries_node = Node(
+        package='nav2_recoveries',
+        executable='recoveries_server',
+        name='recoveries_server',
+        output='screen',
+        parameters=[LaunchConfiguration('nav2_params_file')],
+    )
     
-    nav2_costmap_node = Node(
-            package='nav2_costmap_2d',
-            executable='costmap_2d',
-            name='local_costmap',
-            output='screen',
-            parameters=[LaunchConfiguration('nav2_params_file')],
-        )
+    nav2_lifecycle_manager_node = Node(
+        package='nav2_lifecycle_manager',
+        executable='lifecycle_manager',
+        name='lifecycle_manager_navigation',
+        output='screen',
+        parameters=[{
+            'use_sim_time': False,
+            'autostart': True,
+            'node_names': ['controller_server', 'bt_navigator']
+        }]
+    )
+    
+    # nav2_costmap_node = Node(
+    #         package='nav2_costmap_2d',
+    #         executable='nav2_costmap_2d',
+    #         name='local_costmap',
+    #         output='screen',
+    #         parameters=[LaunchConfiguration('nav2_params_file')],
+    #     )
     
     # RViz2 for visualization (conditional)
     rviz_node = Node(
@@ -225,22 +254,23 @@ def generate_launch_description():
     
     return LaunchDescription([
         use_sim_time_arg,
-        enable_realsense_arg,
-        enable_motor_arg,
-        # enable_safety_arg,
-        enable_follower_arg,
-        enable_navigation_arg,
-        enable_rviz_arg,
-        # map_file_arg,
+        # enable_realsense_arg,
+        # enable_motor_arg,
+        # # enable_safety_arg,
+        # enable_follower_arg,
+        # enable_navigation_arg,
+        # enable_rviz_arg,
+        # # map_file_arg,
         nav2_params_file_arg,
-        robot_description_launch,
-        rviz_node,
-        motor_node,
-        follower_node,
-        realsense_launch,
-        lidar_launch,
-        uwb_launch,
+        # robot_description_launch,
+        # rviz_node,
+        # motor_node,
+        # follower_node,
+        # realsense_launch,
+        # lidar_launch,
+        # uwb_launch,
         nav2_controller_node,
         nav2_bt_navigator_node,
-        nav2_costmap_node
+        nav2_lifecycle_manager_node,
+        # nav2_costmap_node
     ])
