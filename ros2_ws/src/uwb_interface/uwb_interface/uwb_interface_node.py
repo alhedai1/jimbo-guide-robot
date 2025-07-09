@@ -135,15 +135,15 @@ class UWBInterfaceNode(Node):
         pos = self.estimate_tag_position(tags, self.distances)
         filtered_pos = self.kalman_update(np.array(pos))
         pos_msg = Point()
-        pos_msg.x = filtered_pos[0]
-        pos_msg.y = filtered_pos[1]
+        pos_msg.x = filtered_pos[1]
+        pos_msg.y = filtered_pos[0] 
         pos_msg.z = 0.0  # Assuming 2D position
         self.pos_pub.publish(pos_msg)
 
         # Publish TF of person position relative to robot
         transform = TransformStamped()
         transform.header.stamp = self.get_clock().now().to_msg()
-        transform.header.frame_id = 'robot_base_link'
+        transform.header.frame_id = 'base_footprint'
         transform.child_frame_id = 'uwb_person'
         transform.transform.translation.x = pos_msg.x
         transform.transform.translation.y = pos_msg.y
@@ -153,7 +153,7 @@ class UWBInterfaceNode(Node):
         transform.transform.rotation.y = 0.0
         transform.transform.rotation.z = 0.0
         self.tf_broadcaster.sendTransform(transform)
-        
+
 
         # robot_center = np.mean(tags, axis=0)
         # distance_to_person = np.linalg.norm(np.array(pos) - robot_center)

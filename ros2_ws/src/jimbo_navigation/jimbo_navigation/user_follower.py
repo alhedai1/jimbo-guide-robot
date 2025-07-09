@@ -2,7 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, Point, PoseStamped
+from geometry_msgs.msg import Twist, Point, PoseStamped, Quaternion
 from std_msgs.msg import Bool
 import numpy as np
 import math
@@ -10,7 +10,9 @@ from typing import Optional, Tuple
 from rclpy.qos import QoSProfile, DurabilityPolicy
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 import tf_transformations
-
+from tf2_ros import Buffer, TransformListener
+import tf2_ros
+from tf_transformations import quaternion_from_euler
 
 class UserFollower(Node):
     def __init__(self):
@@ -34,22 +36,6 @@ class UserFollower(Node):
         self.user_heading: Optional[float] = 0.0  # Not used currently, assumed to be 0
         self.safety_status = True
         
-        # # Kalman filter state for user position [x, y, vx, vy]
-        # self.kalman_initialized = False
-        # self.kalman_state = np.zeros(4)  # [x, y, vx, vy]
-        # self.kalman_P = np.eye(4)
-        # # self.kalman_Q = np.eye(4) * 0.01  # Process noise
-        # # self.kalman_R = np.eye(2) * 0.1   # Measurement noise
-        # self.kalman_Q = np.eye(4) * 0.005   # Lower process noise
-        # self.kalman_R = np.eye(2) * 0.2     # Higher measurement noise
-        # # self.kalman_Q = np.eye(4) * 0.01   # Very low process noise
-        # # self.kalman_R = np.eye(2) * 0.2    # High measurement noise
-        # self.kalman_F = np.eye(4)
-        # self.kalman_H = np.zeros((2, 4))
-        # self.kalman_H[0, 0] = 1
-        # self.kalman_H[1, 1] = 1
-        # self.kalman_last_time = self.get_clock().now()
-        
         # Publishers
         qos = QoSProfile(depth=10, durability=DurabilityPolicy.VOLATILE)
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', qos)
@@ -68,11 +54,9 @@ class UserFollower(Node):
         self.prev_angular_vel = 0.0
 
         self.nav = BasicNavigator()
-        self.nav.waitUntilNav2Active()
+        # self.nav.waitUntilNav2Active()
 
         # TF2 buffer and listener for transforms
-        from tf2_ros import Buffer, TransformListener
-        import tf2_ros
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.tf_timeout = rclpy.duration.Duration(seconds=0.5)
@@ -85,7 +69,7 @@ class UserFollower(Node):
 
     def uwb_callback(self, msg):
         # read filtered position of person relative to robot
-
+        self.user_position = (msg.x, msg.y) # x - forward, y - right
         return
         
     def control_loop(self): # 10 Hz
@@ -109,36 +93,38 @@ class UserFollower(Node):
     
     def navigate_to_user(self):
         try:
-            # Get transform from base_footprint to map
-            now = rclpy.time.Time()
-            trans = self.tf_buffer.lookup_transform(
-                'base_footprint', 'uwb_person', now, timeout=self.tf_timeout)
-            # User position in robot frame
-            user_x_robot = self.user_position[0] + 0.5
-            user_y_robot = self.user_position[1]
-            # Transform to map frame
-            translation = trans.transform.translation
-            rotation = trans.transform.rotation
-            # Convert quaternion to euler
-            quat = [rotation.x, rotation.y, rotation.z, rotation.w]
-            _, _, yaw = tf_transformations.euler_from_quaternion(quat)
-            # Rotate and translate
-            x_goal = translation.x + user_x_robot * math.cos(yaw) - user_y_robot * math.sin(yaw)
-            y_goal = translation.y + user_x_robot * math.sin(yaw) + user_y_robot * math.cos(yaw)
-        except Exception as e:
-            self.get_logger().warn(f"TF transform failed: {e}")
-            return
+            trans = self.tf_buffer.lookup_transform('base_footprint', 'uwb_person', rclpy.time.Time(), timeout=self.tf_timeout)
+            # # User position in robot frame
+            # user_x_robot = self.user_position[0] + 0.5
+            # user_y_robot = self.user_position[1]
+            x = trans.transform.translation.x
+            y = trans.transform.translation.y
+            x_goal = x + 0.5
+            y_goal = y + 0.0
 
-        if (not hasattr(self, 'last_goal') or math.hypot(x_goal - self.last_goal[0], y_goal - self.last_goal[1]) > 0.2):
+            odom_tf = self.tf_buffer.lookup_transform('odom', 'base_footprint', rclpy.time.Time(), timeout=self.tf_timeout)
+
+            robot_odom_x = odom_tf.transform.translation.x
+            robot_odom_y = odom_tf.transform.translation.y
+
+            goal_global_x = robot_odom_x + x_goal
+            goal_global_y = robot_odom_y + y_goal
+
             goal_pose = PoseStamped()
-            goal_pose.header.frame_id = 'map'
+            goal_pose.header.frame_id = 'odom'
             goal_pose.header.stamp = self.get_clock().now().to_msg()
-            goal_pose.pose.position.x = x_goal
-            goal_pose.pose.position.y = y_goal
-            goal_pose.pose.position.z = 0.0
-            goal_pose.pose.orientation.w = 1.0  # No rotation
+            goal_pose.pose.position.x = goal_global_x
+            goal_pose.pose.position.y = goal_global_y
+
+            q = quaternion_from_euler(0.0, 0.0, 0.0)  # No rotation
+            goal_pose.pose.orientation = Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
+
             self.nav.goToPose(goal_pose)
-            self.last_goal = (x_goal, y_goal)
+            self.get_logger().info(f"Sent goal to ({goal_global_x:.2f}, {goal_global_y:.2f})")
+
+        except Exception as e:
+            self.get_logger().warn(f"Failed to compute goal: {e}")
+            return
 
     def calculate_following_command(self):
         """Calculate velocity commands to follow user"""

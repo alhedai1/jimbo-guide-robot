@@ -56,10 +56,18 @@ def generate_launch_description():
         description='Enable RViz visualization'
     )
     
-    map_file_arg = DeclareLaunchArgument(
-        'map',
-        default_value=[FindPackageShare('jimbo_navigation'), '/maps/generated_map.yaml'],
-        description='Path to map file (for navigation)'
+    # map_file_arg = DeclareLaunchArgument(
+    #     'map',
+    #     default_value=[FindPackageShare('jimbo_navigation'), '/maps/generated_map.yaml'],
+    #     description='Path to map file (for navigation)'
+    # )
+
+    # nav2_params_file = LaunchConfiguration('params_file')
+
+    nav2_params_file_arg = DeclareLaunchArgument(
+        'nav2_params_file',
+        default_value=[FindPackageShare('jimbo_navigation'), '/config/nav2_params.yaml'],
+        description='Path to Navigation2 parameters file'
     )
     
     # Robot description launch
@@ -162,23 +170,48 @@ def generate_launch_description():
         ])
     )
     
-    # Navigation2 bringup (conditional)
-    nav2_bringup_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            FindPackageShare('nav2_bringup'),
-            '/launch/bringup_launch.py'
-        ]),
-        launch_arguments={
-            'map': LaunchConfiguration('map'),
-            'use_sim_time': LaunchConfiguration('use_sim_time'),
-            'params_file': PathJoinSubstitution([
-                FindPackageShare('jimbo_navigation'),
-                'config',
-                'nav2_params.yaml'
-            ])
-        }.items(),
-        condition=IfCondition(LaunchConfiguration('enable_navigation'))
-    )
+    # Launches full nav2 stack
+    # # Navigation2 bringup (conditional)
+    # nav2_bringup_launch = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource([
+    #         FindPackageShare('nav2_bringup'),
+    #         '/launch/bringup_launch.py'
+    #     ]),
+    #     launch_arguments={
+    #         'map': LaunchConfiguration('map'),
+    #         'use_sim_time': LaunchConfiguration('use_sim_time'),
+    #         'params_file': PathJoinSubstitution([
+    #             FindPackageShare('jimbo_navigation'),
+    #             'config',
+    #             'nav2_params.yaml'
+    #         ])
+    #     }.items(),
+    #     condition=IfCondition(LaunchConfiguration('enable_navigation'))
+    # )
+
+    # Launch specific nav2 nodes
+    nav2_controller_node = Node(
+            package='nav2_controller',
+            executable='controller_server',
+            name='controller_server',
+            output='screen',
+            parameters=[LaunchConfiguration('nav2_params_file')],
+        )
+    
+    nav2_bt_navigator_node = Node(package='nav2_bt_navigator',
+            executable='bt_navigator',
+            name='bt_navigator',
+            output='screen',
+            parameters=[LaunchConfiguration('nav2_params_file')],
+        )
+    
+    nav2_costmap_node = Node(
+            package='nav2_costmap_2d',
+            executable='costmap_2d',
+            name='local_costmap',
+            output='screen',
+            parameters=[LaunchConfiguration('nav2_params_file')],
+        )
     
     # RViz2 for visualization (conditional)
     rviz_node = Node(
@@ -198,13 +231,16 @@ def generate_launch_description():
         enable_follower_arg,
         enable_navigation_arg,
         enable_rviz_arg,
-        map_file_arg,
+        # map_file_arg,
+        nav2_params_file_arg,
         robot_description_launch,
+        rviz_node,
         motor_node,
         follower_node,
         realsense_launch,
         lidar_launch,
         uwb_launch,
-        nav2_bringup_launch,
-        rviz_node
+        nav2_controller_node,
+        nav2_bt_navigator_node,
+        nav2_costmap_node
     ])
