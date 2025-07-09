@@ -15,3 +15,10 @@
  - implement obstacle avoidance using lidar, look into slam
 
  - add median filter before kalman filter, to reduce noise
+
+
+## July 9
+# Plan
+ - move kalman filter from user_follower to uwb_interface_node
+ - publish person position relative to robot base link as TF using tf2 TransformBroadcaster, in uwb_interface_node
+ - 

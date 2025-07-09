@@ -6,6 +6,8 @@ import serial
 import time
 import numpy as np
 from scipy.optimize import minimize
+from typing import Optional, Tuple
+from tf2_ros import TransformBroadcaster
 
 # configuring tags and anchor (nmt, nmi, nis) is done separately
 # tags - 4 nmt
@@ -71,8 +73,26 @@ class UWBInterfaceNode(Node):
 
         self.distances = [0.0] * len(self.tags)
         # self.dist_pub = self.create_publisher(Float32MultiArray, 'uwb_distances', 10)
-        self.pos_pub = self.create_publisher(Point, 'uwb_rel_position', 10)
+        self.pos_pub = self.create_publisher(Point, 'uwb_filtered_position', 10)
         self.timer = self.create_timer(0.1, self.request_sensor_data)  # 10Hz
+
+        # State variables
+        self.user_position: Optional[Tuple[float, float]] = None
+        self.user_heading: Optional[float] = 0.0  # Not used currently, assumed to be 0
+
+        # Kalman filter state for user position [x, y, vx, vy]
+        self.kalman_initialized = False
+        self.kalman_state = np.zeros(4)  # [x, y, vx, vy]
+        self.kalman_P = np.eye(4)
+        self.kalman_Q = np.eye(4) * 0.005   # Lower process noise
+        self.kalman_R = np.eye(2) * 0.2     # Higher measurement noise
+        self.kalman_F = np.eye(4)
+        self.kalman_H = np.zeros((2, 4))
+        self.kalman_H[0, 0] = 1
+        self.kalman_H[1, 1] = 1
+        self.kalman_last_time = self.get_clock().now()
+
+        self.tf_broadcaster = TransformBroadcaster(self)
 
     def request_sensor_data(self):
         # Read from all serial ports with non-blocking approach
@@ -113,11 +133,27 @@ class UWBInterfaceNode(Node):
         
         # Estimate position
         pos = self.estimate_tag_position(tags, self.distances)
+        filtered_pos = self.kalman_update(np.array(pos))
         pos_msg = Point()
-        pos_msg.x = pos[0]
-        pos_msg.y = pos[1]
+        pos_msg.x = filtered_pos[0]
+        pos_msg.y = filtered_pos[1]
         pos_msg.z = 0.0  # Assuming 2D position
         self.pos_pub.publish(pos_msg)
+
+        # Publish TF of person position relative to robot
+        transform = TransformBroadcaster.TransformStamped()
+        transform.header.stamp = self.get_clock().now().to_msg()
+        transform.header.frame_id = 'base_footprint'
+        transform.child_frame_id = 'uwb_person'
+        transform.transform.translation.x = pos_msg.x
+        transform.transform.translation.y = pos_msg.y
+        transform.transform.translation.z = 0.0
+        transform.transform.rotation.w = 1.0  # No rotation
+        transform.transform.rotation.x = 0.0
+        transform.transform.rotation.y = 0.0
+        transform.transform.rotation.z = 0.0
+        self.tf_broadcaster.sendTransform(transform)
+        
 
         # robot_center = np.mean(tags, axis=0)
         # distance_to_person = np.linalg.norm(np.array(pos) - robot_center)
@@ -157,6 +193,35 @@ class UWBInterfaceNode(Node):
             return result.x
         # else:
         #     return [0.0, 0.0]  # Return center if optimization fails
+
+    def kalman_update(self, z):
+        now = self.get_clock().now()
+        dt = (now - self.kalman_last_time).nanoseconds * 1e-9
+        if dt <= 0 or dt > 1.0:
+            dt = 0.1  # fallback for first call or large jumps
+        self.kalman_last_time = now
+
+        if not self.kalman_initialized:
+            self.kalman_state[:2] = z
+            self.kalman_initialized = True
+            return self.kalman_state[:2]
+
+        # Update F for dt
+        self.kalman_F[0, 2] = dt
+        self.kalman_F[1, 3] = dt
+
+        # Predict
+        self.kalman_state = self.kalman_F @ self.kalman_state
+        self.kalman_P = self.kalman_F @ self.kalman_P @ self.kalman_F.T + self.kalman_Q
+
+        # Update
+        y = z - self.kalman_H @ self.kalman_state
+        S = self.kalman_H @ self.kalman_P @ self.kalman_H.T + self.kalman_R
+        K = self.kalman_P @ self.kalman_H.T @ np.linalg.inv(S)
+        self.kalman_state = self.kalman_state + K @ y
+        self.kalman_P = (np.eye(4) - K @ self.kalman_H) @ self.kalman_P
+
+        return self.kalman_state[:2]
 
     def destroy_node(self):
         for tag in self.tags:
