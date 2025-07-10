@@ -20,14 +20,14 @@ class UserFollower(Node):
         
         # Parameters
         self.declare_parameter('target_distance', 0.5)      # 0.5m from user
-        self.declare_parameter('target_position', (-0.5, 0.0)) # Target position of person relative to robot (x, y), (0.5m behind robot)
-        self.declare_parameter('target_angle', math.pi)  # Target angle of person relative to robot (radians), 180.0 means directly behind
+        # self.declare_parameter('target_position', (-0.5, 0.0)) # Target position of person relative to robot (x, y), (0.5m behind robot)
+        # self.declare_parameter('target_angle', math.pi)  # Target angle of person relative to robot (radians), 180.0 means directly behind
         self.declare_parameter('max_linear_velocity', 0.3)  # 0.3 m/s
         self.declare_parameter('max_angular_velocity', 0.5) # 0.5 rad/s
         
         self.target_distance = self.get_parameter('target_distance').value
-        self.target_position = self.get_parameter('target_position').value 
-        self.target_angle = self.get_parameter('target_angle').value
+        # self.target_position = self.get_parameter('target_position').value 
+        # self.target_angle = self.get_parameter('target_angle').value
         self.max_linear_vel = self.get_parameter('max_linear_velocity').value
         self.max_angular_vel = self.get_parameter('max_angular_velocity').value
         
@@ -53,13 +53,13 @@ class UserFollower(Node):
         self.prev_linear_vel = 0.0
         self.prev_angular_vel = 0.0
 
-        self.nav = BasicNavigator()
-        self.nav.waitUntilNav2Active()
+        # self.nav = BasicNavigator()
+        # self.nav.waitUntilNav2Active()
 
-        # TF2 buffer and listener for transforms
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
-        self.tf_timeout = rclpy.duration.Duration(seconds=0.5)
+        # # TF2 buffer and listener for transforms
+        # self.tf_buffer = Buffer()
+        # self.tf_listener = TransformListener(self.tf_buffer, self)
+        # self.tf_timeout = rclpy.duration.Duration(seconds=0.5)
         
         self.get_logger().info('User Follower initialized')
     
@@ -85,11 +85,11 @@ class UserFollower(Node):
             return
         
         # Calculate control commands
-        # cmd_vel = self.calculate_following_command()
-        # self.cmd_vel_pub.publish(cmd_vel)
+        cmd_vel = self.calculate_following_command()
+        self.cmd_vel_pub.publish(cmd_vel)
 
         # # Navigate to user
-        self.navigate_to_user()
+        # self.navigate_to_user()
     
     def navigate_to_user(self):
         try:
@@ -148,8 +148,8 @@ class UserFollower(Node):
         # Current distance to user
         current_distance = math.sqrt(self.user_position[0]**2 + self.user_position[1]**2)
 
-        # if (current_distance < self.target_distance):
-        #     return cmd_vel # Stop moving if too close
+        if (current_distance < self.target_distance):
+            return cmd_vel # Stop moving if too close
         
         # Optional: if too close, move away to maintain fixed distance
         

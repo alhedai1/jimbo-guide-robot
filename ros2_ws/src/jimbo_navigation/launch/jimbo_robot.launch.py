@@ -81,7 +81,8 @@ def generate_launch_description():
         ])
     )
     
-    # Motor interface node (conditional)
+
+    # Motor interface node (conditional) - start first
     motor_node = Node(
         package='motor_interface_pkg',
         executable='motor_serial_node',
@@ -95,37 +96,36 @@ def generate_launch_description():
         output='screen',
         condition=IfCondition(LaunchConfiguration('enable_motor'))
     )
-    
-    # # Safety monitor node (always enabled)
-    # safety_node = Node(
-    #     package='jimbo_navigation',
-    #     executable='safety_monitor',
-    #     name='safety_monitor',
-    #     parameters=[{
-    #         'emergency_stop_distance': 0.3,
-    #         'slow_down_distance': 0.5,
-    #         'warning_distance': 0.8
-    #     }],
-    #     remappings=[
-    #         ('cmd_vel', 'cmd_vel_raw'),
-    #         ('cmd_vel_filtered', 'cmd_vel')
-    #     ],
-    #     output='screen',
-    #     condition=IfCondition(LaunchConfiguration('enable_safety'))
-    # )
-    
-    # User follower node (conditional)
-    follower_node = Node(
-        package='jimbo_navigation',
-        executable='user_follower',
-        name='user_follower',
-        parameters=[{
-            'target_distance': 1.0,
-            'max_linear_velocity': 0.5,
-            'max_angular_velocity': 1.0,
-        }],
-        output='screen',
-        condition=IfCondition(LaunchConfiguration('enable_follower'))
+
+    # UWB launch (always enabled)
+    uwb_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('uwb_interface'),
+                'launch',
+                'uwb.launch.py'
+            ])
+        ])
+    )
+
+    # Add a delay before starting user_follower to ensure motor node is ready
+    from launch.actions import TimerAction
+    follower_node = TimerAction(
+        period=3.0,  # seconds
+        actions=[
+            Node(
+                package='jimbo_navigation',
+                executable='user_follower',
+                name='user_follower',
+                parameters=[{
+                    'target_distance': 1.0,
+                    'max_linear_velocity': 0.5,
+                    'max_angular_velocity': 1.0,
+                }],
+                output='screen',
+                condition=IfCondition(LaunchConfiguration('enable_follower'))
+            )
+        ]
     )
     
     # RealSense camera launch (conditional)
@@ -155,17 +155,6 @@ def generate_launch_description():
                 FindPackageShare('ydlidar_ros2_driver'),
                 'launch',
                 'ydlidar_launch.py'
-            ])
-        ])
-    )
-    
-    # UWB launch (always enabled)
-    uwb_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('uwb_interface'),
-                'launch',
-                'uwb.launch.py'
             ])
         ])
     )
@@ -247,7 +236,7 @@ def generate_launch_description():
         package='rviz2',
         executable='rviz2',
         name='rviz2',
-        arguments=['-d', [FindPackageShare('jimbo_navigation'), '/config/complete_view.rviz']],
+        arguments=['-d', [FindPackageShare('jimbo_navigation'), '/config/config.rviz']],
         output='screen',
         condition=IfCondition(LaunchConfiguration('enable_rviz'))
     )
@@ -255,22 +244,22 @@ def generate_launch_description():
     return LaunchDescription([
         use_sim_time_arg,
         # enable_realsense_arg,
-        # enable_motor_arg,
+        enable_motor_arg,
         # # enable_safety_arg,
-        # enable_follower_arg,
+        enable_follower_arg,
         # enable_navigation_arg,
-        # enable_rviz_arg,
+        enable_rviz_arg,
         # # map_file_arg,
-        nav2_params_file_arg,
-        # robot_description_launch,
-        # rviz_node,
-        # motor_node,
-        # follower_node,
+        # nav2_params_file_arg,
+        robot_description_launch,
+        rviz_node,
+        motor_node,
+        follower_node,
         # realsense_launch,
-        # lidar_launch,
-        # uwb_launch,
-        nav2_controller_node,
-        nav2_bt_navigator_node,
-        nav2_lifecycle_manager_node,
+        lidar_launch,
+        uwb_launch,
+        # nav2_controller_node,
+        # nav2_bt_navigator_node,
+        # nav2_lifecycle_manager_node,
         # nav2_costmap_node
     ])
