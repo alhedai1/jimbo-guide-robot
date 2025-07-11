@@ -32,3 +32,9 @@
  - solution: reordered launching of nodes/launch and added delay before follower node
  - issue: following nav2 "dynamic object following" tutorial. robot doesn't spawn in gazebo.
  - solution: set environment variable properly (TURTLEBOT3_MODEL and GAZEBO_MODEL_PATH)
+
+
+## July 11
+# Plan
+ - use nav2 to track person uwb while avoiding obstacles
+ 
