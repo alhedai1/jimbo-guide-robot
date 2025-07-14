@@ -57,6 +57,7 @@ class UserFollower(Node):
         # self.nav.waitUntilNav2Active()
 
         self.goal_pub = self.create_publisher(PoseStamped, 'goal_pose', 10)
+        self.speed_limit_pub = self.create_publisher(Twist, 'speed_limit', 10)
 
         # TF2 buffer and listener for transforms
         self.tf_buffer = Buffer()
