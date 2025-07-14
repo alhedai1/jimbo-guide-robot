@@ -93,7 +93,7 @@ class UserFollower(Node):
     
     def navigate_to_user(self):
         try:
-            trans = self.tf_buffer.lookup_transform('base_footprint', 'uwb_person', rclpy.time.Time(), timeout=self.tf_timeout)
+            trans = self.tf_buffer.lookup_transform('base_link', 'uwb_person', rclpy.time.Time(), timeout=self.tf_timeout)
             # # User position in robot frame
             # user_x_robot = self.user_position[0] + 0.5
             # user_y_robot = self.user_position[1]
@@ -102,7 +102,7 @@ class UserFollower(Node):
             x_goal = x + 0.5
             y_goal = y + 0.0
 
-            odom_tf = self.tf_buffer.lookup_transform('odom', 'base_footprint', rclpy.time.Time(), timeout=self.tf_timeout)
+            odom_tf = self.tf_buffer.lookup_transform('odom', 'base_link', rclpy.time.Time(), timeout=self.tf_timeout)
 
             robot_odom_x = odom_tf.transform.translation.x
             robot_odom_y = odom_tf.transform.translation.y

@@ -143,7 +143,7 @@ class UWBInterfaceNode(Node):
         # Publish TF of person position relative to robot
         transform = TransformStamped()
         transform.header.stamp = self.get_clock().now().to_msg()
-        transform.header.frame_id = 'base_footprint'
+        transform.header.frame_id = 'base_link'
         transform.child_frame_id = 'uwb_person'
         transform.transform.translation.x = pos_msg.x
         transform.transform.translation.y = pos_msg.y

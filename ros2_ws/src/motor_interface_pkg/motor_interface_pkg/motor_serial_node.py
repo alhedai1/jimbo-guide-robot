@@ -155,7 +155,7 @@ class MotorSerialNode(Node):
         t = TransformStamped()
         t.header.stamp = now.to_msg()
         t.header.frame_id = 'odom'
-        t.child_frame_id = 'base_footprint'
+        t.child_frame_id = 'base_link'
         t.transform.translation.x = self.x
         t.transform.translation.y = self.y
         t.transform.translation.z = 0.0
@@ -168,7 +168,7 @@ class MotorSerialNode(Node):
         # # 추가: base_link → laser_frame
         # laser_tf = TransformStamped()
         # laser_tf.header.stamp = now.to_msg()
-        # laser_tf.header.frame_id = 'robot_base_link'
+        # laser_tf.header.frame_id = 'base_link'
         # laser_tf.child_frame_id = 'laser_frame'
         # laser_tf.transform.translation.x = 0.2
         # laser_tf.transform.translation.y = 0.0
@@ -182,7 +182,7 @@ class MotorSerialNode(Node):
         # # 추가: base_link → camera_link
         # cam_tf = TransformStamped()
         # cam_tf.header.stamp = now.to_msg()
-        # cam_tf.header.frame_id = 'robot_base_link'
+        # cam_tf.header.frame_id = 'base_link'
         # cam_tf.child_frame_id = 'camera_link'
         # cam_tf.transform.translation.x = 0.1
         # cam_tf.transform.translation.y = 0.0

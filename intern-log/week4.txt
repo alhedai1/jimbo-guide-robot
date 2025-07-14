@@ -1,0 +1,8 @@
+
+## July 14
+# Log
+ - local costmap displayed and obstacles detected
+ - no need to use map.yaml file, only dummy map -> odom frame
+ - global costmap not needed, ignore errors related to it
+ - lidar detections reversed --> set "reversion" & "inverted" params to True in yaml (X4)
+ - 
