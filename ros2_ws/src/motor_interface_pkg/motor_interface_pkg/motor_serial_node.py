@@ -20,7 +20,7 @@ class MotorSerialNode(Node):
         self.declare_parameter('port', '/dev/motor_arduino')
         self.declare_parameter('baudrate', 115200)
         self.declare_parameter('wheel_radius', 0.0635)
-        self.declare_parameter('wheel_base', 0.3)
+        self.declare_parameter('wheel_base', 0.3) # Distance between left and right wheels
 
         # Get parameters
         self.port = self.get_parameter('port').get_parameter_value().string_value
@@ -102,8 +102,8 @@ class MotorSerialNode(Node):
         # 왼쪽 바퀴 부호 반전
         left_rpm_corrected = -left_rpm
 
-        v = self.wheel_radius * (left_rpm_corrected + right_rpm) * math.pi / 60 / 2
-        w = self.wheel_radius * (right_rpm - left_rpm_corrected) * math.pi / 60 / self.wheel_base
+        v = self.wheel_radius * (left_rpm_corrected + right_rpm) * 2 * math.pi / 60 / 2
+        w = self.wheel_radius * (right_rpm - left_rpm_corrected) * 2 * math.pi / 60 / self.wheel_base
 
         dx = v * math.cos(self.theta) * dt
         dy = v * math.sin(self.theta) * dt
@@ -118,7 +118,7 @@ class MotorSerialNode(Node):
         odom = Odometry()
         odom.header.stamp = now.to_msg()
         odom.header.frame_id = 'odom'
-        odom.child_frame_id = 'base_footprint'
+        odom.child_frame_id = 'base_link'
         odom.pose.pose.position.x = self.x
         odom.pose.pose.position.y = self.y
         odom.pose.pose.orientation.x = q[0]

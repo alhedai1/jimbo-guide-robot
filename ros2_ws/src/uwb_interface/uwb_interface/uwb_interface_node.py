@@ -136,7 +136,7 @@ class UWBInterfaceNode(Node):
         filtered_pos = self.kalman_update(np.array(pos))
         pos_msg = Point()
         pos_msg.x = filtered_pos[1]
-        pos_msg.y = filtered_pos[0] 
+        pos_msg.y = -filtered_pos[0] 
         pos_msg.z = 0.0  # Assuming 2D position
         self.pos_pub.publish(pos_msg)
 
