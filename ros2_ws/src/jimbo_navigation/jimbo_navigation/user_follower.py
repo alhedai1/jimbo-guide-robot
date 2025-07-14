@@ -56,10 +56,12 @@ class UserFollower(Node):
         # self.nav = BasicNavigator()
         # self.nav.waitUntilNav2Active()
 
-        # # TF2 buffer and listener for transforms
-        # self.tf_buffer = Buffer()
-        # self.tf_listener = TransformListener(self.tf_buffer, self)
-        # self.tf_timeout = rclpy.duration.Duration(seconds=0.5)
+        self.goal_pub = self.create_publisher(PoseStamped, 'goal', 10)
+
+        # TF2 buffer and listener for transforms
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+        self.tf_timeout = rclpy.duration.Duration(seconds=0.5)
         
         self.get_logger().info('User Follower initialized')
     
@@ -84,12 +86,12 @@ class UserFollower(Node):
             self.get_logger().info('No user detected - waiting')
             return
         
-        # Calculate control commands
-        cmd_vel = self.calculate_following_command()
-        self.cmd_vel_pub.publish(cmd_vel)
+        # # Calculate control commands
+        # cmd_vel = self.calculate_following_command()
+        # self.cmd_vel_pub.publish(cmd_vel)
 
-        # # Navigate to user
-        # self.navigate_to_user()
+        # Navigate to user
+        self.navigate_to_user()
     
     def navigate_to_user(self):
         try:
@@ -120,7 +122,8 @@ class UserFollower(Node):
             goal_pose.pose.orientation = Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
 
             self.get_logger().info(f"BEFORE SENDING GOAL")
-            self.nav.goToPose(goal_pose)
+            # self.nav.goToPose(goal_pose)
+            self.goal_pub.publish(goal_pose)
             self.get_logger().info(f"Sent goal to ({goal_global_x:.2f}, {goal_global_y:.2f})")
 
         except Exception as e:
