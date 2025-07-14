@@ -8,3 +8,8 @@
  - lidar connection errors sometimes. might've been due to port set to /dev/ttyUSB0 not /dev/lidar
  - nav2 params yaml syntax error: use "" around [] for footprint coordinates
  - robot tracks user on rviz, but needs tuning
+
+
+## July 15
+# Log
+ - try using speed filter in costmap
