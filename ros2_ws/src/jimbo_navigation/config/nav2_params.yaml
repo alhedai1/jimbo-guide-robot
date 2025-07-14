@@ -82,7 +82,7 @@ local_costmap:
       height: 3
       resolution: 0.05
       robot_radius: 0.22
-      footprint: [[0.2, 0.15], [0.2, -0.15], [-0.2, -0.15], [-0.2, 0.15]]
+      footprint: "[[0.2, 0.15], [0.2, -0.15], [-0.2, -0.15], [-0.2, 0.15]]"
       plugins: ["voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
@@ -110,7 +110,7 @@ local_costmap:
           obstacle_min_range: 0.0
       always_send_full_costmap: True
 
-global_costmap: # not using static layer, if required, just set enabled=false
+global_costmap:
   global_costmap:
     ros__parameters:
       update_frequency: 1.0
@@ -118,6 +118,7 @@ global_costmap: # not using static layer, if required, just set enabled=false
       global_frame: map
       robot_base_frame: base_link
       use_sim_time: False
+      rolling_window: True
       robot_radius: 0.22
       resolution: 0.05
       track_unknown_space: true
@@ -138,7 +139,7 @@ global_costmap: # not using static layer, if required, just set enabled=false
           obstacle_min_range: 0.0
       # static_layer:
       #   plugin: "nav2_costmap_2d::StaticLayer"
-      #   map_subscribe_transient_local: false
+      #   map_subscribe_transient_local: True
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0

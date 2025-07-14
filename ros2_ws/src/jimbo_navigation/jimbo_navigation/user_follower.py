@@ -56,7 +56,7 @@ class UserFollower(Node):
         # self.nav = BasicNavigator()
         # self.nav.waitUntilNav2Active()
 
-        self.goal_pub = self.create_publisher(PoseStamped, 'goal', 10)
+        self.goal_pub = self.create_publisher(PoseStamped, 'goal_pose', 10)
 
         # TF2 buffer and listener for transforms
         self.tf_buffer = Buffer()
@@ -123,7 +123,9 @@ class UserFollower(Node):
 
             self.get_logger().info(f"BEFORE SENDING GOAL")
             # self.nav.goToPose(goal_pose)
-            self.goal_pub.publish(goal_pose)
+            distance = math.sqrt(x*x + y*y)
+            if not (distance < 0.5):
+                self.goal_pub.publish(goal_pose)
             self.get_logger().info(f"Sent goal to ({goal_global_x:.2f}, {goal_global_y:.2f})")
 
         except Exception as e:
