@@ -47,7 +47,7 @@ class UserFollower(Node):
         self.uwb_sub = self.create_subscription(Point, "uwb_filtered_position", self.uwb_callback, 10)
         
         # Timer for control loop
-        self.control_timer = self.create_timer(0.1, self.control_loop)  # 10Hz
+        self.control_timer = self.create_timer(1, self.control_loop)  # 1Hz
         # self.control_timer = self.create_timer(0.05, self.control_loop)  # 20Hz
 
         self.alpha = 0.2 # cmd filter coefficient
@@ -73,10 +73,10 @@ class UserFollower(Node):
 
     def uwb_callback(self, msg):
         # read filtered position of person relative to robot
-        self.user_position = (msg.x, msg.y) # x - forward, y - right
+        self.user_position = (msg.x, msg.y) # x - forward, y - left
         return
         
-    def control_loop(self): # 10 Hz
+    def control_loop(self): # 1 Hz
         if not self.safety_status:
             # Safety violation - stop
             self.stop_robot()
@@ -97,16 +97,23 @@ class UserFollower(Node):
     
     def navigate_to_user(self):
         try:
-            trans = self.tf_buffer.lookup_transform('base_link', 'uwb_person', rclpy.time.Time(), timeout=self.tf_timeout)
+            trans = self.tf_buffer.lookup_transform('base_footprint', 'uwb_person', rclpy.time.Time(), timeout=self.tf_timeout)
             # # User position in robot frame
             # user_x_robot = self.user_position[0] + 0.5
             # user_y_robot = self.user_position[1]
             x = trans.transform.translation.x
             y = trans.transform.translation.y
+
+            distance = math.sqrt(x*x + y*y)
+            if (distance < 0.5):
+                self.get_logger().info(f"User too close: {distance:.2f}m, stopping")
+                self.stop_robot()
+                return
+            
             x_goal = x + 0.5
             y_goal = y + 0.0
 
-            odom_tf = self.tf_buffer.lookup_transform('odom', 'base_link', rclpy.time.Time(), timeout=self.tf_timeout)
+            odom_tf = self.tf_buffer.lookup_transform('odom', 'base_footprint', rclpy.time.Time(), timeout=self.tf_timeout)
 
             robot_odom_x = odom_tf.transform.translation.x
             robot_odom_y = odom_tf.transform.translation.y
@@ -125,13 +132,13 @@ class UserFollower(Node):
 
             self.get_logger().info(f"BEFORE SENDING GOAL")
             # self.nav.goToPose(goal_pose)
-            distance = math.sqrt(x*x + y*y)
-            if not (distance < 0.5):
-                self.goal_pub.publish(goal_pose)
-                speed_limit = SpeedLimit()
-                speed_limit.percentage = True
-                speed_limit.speed_limit = 20.0  # 20% speed limit
-                self.speed_limit_pub.publish(speed_limit)
+
+            self.goal_pub.publish(goal_pose)
+            speed_limit = SpeedLimit()
+            speed_limit.percentage = True
+            speed_limit.speed_limit = 20.0  # 20% speed limit
+            self.speed_limit_pub.publish(speed_limit)
+            
             self.get_logger().info(f"Sent goal to ({goal_global_x:.2f}, {goal_global_y:.2f})")
 
         except Exception as e:
