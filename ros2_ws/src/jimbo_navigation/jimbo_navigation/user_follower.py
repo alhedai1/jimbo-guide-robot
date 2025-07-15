@@ -2,7 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, Point, PoseStamped, Quaternion
+from geometry_msgs.msg import Twist, Point, Pose, PoseWithCovariance, PoseStamped, PoseWithCovarianceStamped, Quaternion
 from std_msgs.msg import Bool
 from nav2_msgs.msg import SpeedLimit
 import numpy as np
@@ -43,27 +43,29 @@ class UserFollower(Node):
         # self.filtered_pos_pub = self.create_publisher(Point, "filtered_pos", 10) # debugging
         
         # Subscribers
-        self.safety_sub = self.create_subscription(Bool, 'safety_status', self.safety_callback, 10)
+        # self.safety_sub = self.create_subscription(Bool, 'safety_status', self.safety_callback, 10)
         self.uwb_sub = self.create_subscription(Point, "uwb_filtered_position", self.uwb_callback, 10)
+        self.tracking_sub = self.create_subscription(Bool, 'tracking_cmd', self.tracking_callback, 10)
         
         # Timer for control loop
-        self.control_timer = self.create_timer(1, self.control_loop)  # 1Hz
+        self.control_timer = self.create_timer(0.1, self.control_loop)  # 1Hz
         # self.control_timer = self.create_timer(0.05, self.control_loop)  # 20Hz
 
         self.alpha = 0.2 # cmd filter coefficient
         self.prev_linear_vel = 0.0
         self.prev_angular_vel = 0.0
 
-        # self.nav = BasicNavigator()
-        # self.nav.waitUntilNav2Active()
-
-        self.goal_pub = self.create_publisher(PoseStamped, 'goal_pose', 10)
-        self.speed_limit_pub = self.create_publisher(SpeedLimit, 'speed_limit', 10)
+        self.goal_pub = self.create_publisher(PoseStamped, 'goal_pose', 1)
+        self.speed_limit_pub = self.create_publisher(SpeedLimit, 'speed_limit', 1)
 
         # TF2 buffer and listener for transforms
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.tf_timeout = rclpy.duration.Duration(seconds=0.5)
+
+        self.tracking_status = False
+
+        self.init_pose_pub = self.create_publisher(PoseWithCovarianceStamped, 'initialpose', 1)
         
         self.get_logger().info('User Follower initialized')
     
@@ -75,17 +77,21 @@ class UserFollower(Node):
         # read filtered position of person relative to robot
         self.user_position = (msg.x, msg.y) # x - forward, y - left
         return
-        
-    def control_loop(self): # 1 Hz
-        if not self.safety_status:
-            # Safety violation - stop
+
+    def tracking_callback(self, msg):
+        """Handle tracking command"""
+        if not msg.data:
+            self.tracking_status = False
             self.stop_robot()
-            return
-        
-        if self.user_position is None:
-            # No user detected - stop and wait
+            self.get_logger().info('Tracking disabled - stopping robot')
+        else:
+            self.tracking_status = True
+            self.get_logger().info('Tracking enabled - following user')
+
+    
+    def control_loop(self): # 10 Hz
+        if not self.safety_status or self.user_position is None:
             self.stop_robot()
-            self.get_logger().info('No user detected - waiting')
             return
         
         # # Calculate control commands
@@ -93,11 +99,36 @@ class UserFollower(Node):
         # self.cmd_vel_pub.publish(cmd_vel)
 
         # Navigate to user
-        self.navigate_to_user()
+        if self.tracking_status:
+            self.tracking_status = False
+            # trans = self.tf_buffer.lookup_transform('base_footprint', 'uwb_person', rclpy.time.Time(), timeout=self.tf_timeout)
+            # self.navigate_to_user(trans)
+
+            msg = PoseWithCovarianceStamped()
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.frame_id = 'odom'  # or your desired frame
+            msg.pose = PoseWithCovariance()
+            msg.pose.pose = Pose(
+                position=Point(x=0.0, y=0.0, z=0.0),
+                orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
+            )
+            msg.pose.covariance = [0.0]*36  # or your desired covariance
+
+            self.init_pose_pub.publish(msg)
+
+            # dummy goal pose
+            goal_pose = PoseStamped()
+            goal_pose.header.frame_id = 'odom'
+            goal_pose.header.stamp = self.get_clock().now().to_msg()
+            goal_pose.pose.position.x = -0.5
+            goal_pose.pose.position.y = 0.0
+            q = quaternion_from_euler(0.0, 0.0, 0.0)  # No rotation
+            goal_pose.pose.orientation = Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
+            self.goal_pub.publish(goal_pose)
     
-    def navigate_to_user(self):
+    def navigate_to_user(self, trans):
         try:
-            trans = self.tf_buffer.lookup_transform('base_footprint', 'uwb_person', rclpy.time.Time(), timeout=self.tf_timeout)
+            # trans = self.tf_buffer.lookup_transform('base_footprint', 'uwb_person', rclpy.time.Time(), timeout=self.tf_timeout)
             # # User position in robot frame
             # user_x_robot = self.user_position[0] + 0.5
             # user_y_robot = self.user_position[1]
@@ -121,11 +152,21 @@ class UserFollower(Node):
             goal_global_x = robot_odom_x + x_goal
             goal_global_y = robot_odom_y + y_goal
 
+            # goal_pose = PoseStamped()
+            # goal_pose.header.frame_id = 'odom'
+            # goal_pose.header.stamp = self.get_clock().now().to_msg()
+            # goal_pose.pose.position.x = goal_global_x
+            # goal_pose.pose.position.y = goal_global_y
+
+            # q = quaternion_from_euler(0.0, 0.0, 0.0)  # No rotation
+            # goal_pose.pose.orientation = Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
+
+            # dummy goal pose
             goal_pose = PoseStamped()
             goal_pose.header.frame_id = 'odom'
             goal_pose.header.stamp = self.get_clock().now().to_msg()
-            goal_pose.pose.position.x = goal_global_x
-            goal_pose.pose.position.y = goal_global_y
+            goal_pose.pose.position.x = -0.5
+            goal_pose.pose.position.y = 0.0
 
             q = quaternion_from_euler(0.0, 0.0, 0.0)  # No rotation
             goal_pose.pose.orientation = Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
@@ -136,7 +177,7 @@ class UserFollower(Node):
             self.goal_pub.publish(goal_pose)
             speed_limit = SpeedLimit()
             speed_limit.percentage = True
-            speed_limit.speed_limit = 20.0  # 20% speed limit
+            speed_limit.speed_limit = 100.0  # 20% speed limit
             self.speed_limit_pub.publish(speed_limit)
             
             self.get_logger().info(f"Sent goal to ({goal_global_x:.2f}, {goal_global_y:.2f})")

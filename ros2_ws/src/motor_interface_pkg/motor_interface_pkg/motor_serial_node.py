@@ -52,7 +52,7 @@ class MotorSerialNode(Node):
 
     # read Twist command and send to arduino
     def cmd_callback(self, msg: Twist):
-        self.get_logger().info(f"Received cmd_vel: {msg}")
+        # self.get_logger().info(f"Received cmd_vel: {msg}")
         linear = msg.linear.x
         angular = msg.angular.z
 
@@ -118,7 +118,7 @@ class MotorSerialNode(Node):
         odom = Odometry()
         odom.header.stamp = now.to_msg()
         odom.header.frame_id = 'odom'
-        odom.child_frame_id = 'base_link'
+        odom.child_frame_id = 'base_footprint'
         odom.pose.pose.position.x = self.x
         odom.pose.pose.position.y = self.y
         odom.pose.pose.orientation.x = q[0]
@@ -155,7 +155,7 @@ class MotorSerialNode(Node):
         t = TransformStamped()
         t.header.stamp = now.to_msg()
         t.header.frame_id = 'odom'
-        t.child_frame_id = 'base_link'
+        t.child_frame_id = 'base_footprint'
         t.transform.translation.x = self.x
         t.transform.translation.y = self.y
         t.transform.translation.z = 0.0
