@@ -4,6 +4,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, Point, PoseStamped, Quaternion
 from std_msgs.msg import Bool
+from nav2_msgs.msg import SpeedLimit
 import numpy as np
 import math
 from typing import Optional, Tuple
@@ -57,7 +58,7 @@ class UserFollower(Node):
         # self.nav.waitUntilNav2Active()
 
         self.goal_pub = self.create_publisher(PoseStamped, 'goal_pose', 10)
-        self.speed_limit_pub = self.create_publisher(Twist, 'speed_limit', 10)
+        self.speed_limit_pub = self.create_publisher(SpeedLimit, 'speed_limit', 10)
 
         # TF2 buffer and listener for transforms
         self.tf_buffer = Buffer()
@@ -127,6 +128,10 @@ class UserFollower(Node):
             distance = math.sqrt(x*x + y*y)
             if not (distance < 0.5):
                 self.goal_pub.publish(goal_pose)
+                speed_limit = SpeedLimit()
+                speed_limit.percentage = True
+                speed_limit.speed_limit = 20.0  # 20% speed limit
+                self.speed_limit_pub.publish(speed_limit)
             self.get_logger().info(f"Sent goal to ({goal_global_x:.2f}, {goal_global_y:.2f})")
 
         except Exception as e:
