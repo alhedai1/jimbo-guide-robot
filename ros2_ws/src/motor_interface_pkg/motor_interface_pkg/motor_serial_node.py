@@ -42,7 +42,7 @@ class MotorSerialNode(Node):
         # ROS interfaces
         self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
         self.rpm_pub = self.create_publisher(MotorRPM, 'motor_rpm', 10)
-        self.cmd_sub = self.create_subscription(Twist, 'cmd_vel', self.cmd_callback, 10)
+        self.cmd_sub = self.create_subscription(Twist, 'cmd_vel_nav', self.cmd_callback, 10)
         self.rpm_cmd_sub = self.create_subscription(MotorRPM, 'motor_rpm_cmd', self.rpm_callback, 10)
         self.tf_broadcaster = TransformBroadcaster(self)
 

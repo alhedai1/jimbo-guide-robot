@@ -55,7 +55,7 @@ class UserFollower(Node):
         self.prev_linear_vel = 0.0
         self.prev_angular_vel = 0.0
 
-        self.goal_pub = self.create_publisher(PoseStamped, 'goal_update', 10)
+        self.goal_pub = self.create_publisher(PoseStamped, 'goal_pose', 10)
         self.speed_limit_pub = self.create_publisher(SpeedLimit, 'speed_limit', 10)
 
         # TF2 buffer and listener for transforms

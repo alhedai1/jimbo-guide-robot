@@ -118,9 +118,10 @@ global_costmap:
       global_frame: map
       robot_base_frame: base_footprint
       use_sim_time: False
-      rolling_window: True
       robot_radius: 0.22
       resolution: 0.05
+      origin_x: -2.5
+      origin_y: -2.5
       track_unknown_space: true
       plugins: ["obstacle_layer", "inflation_layer"]
       obstacle_layer:

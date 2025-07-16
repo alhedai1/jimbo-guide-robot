@@ -7,9 +7,9 @@
     <PipelineSequence name="NavigateWithReplanning">
       <RateController hz="1.0">
         <Sequence>
-          <GoalUpdater input_goal="{goal}" output_goal="{updated_goal}">
-            <ComputePathToPose goal="{updated_goal}" path="{path}" planner_id="GridBased"/>
-          </GoalUpdater>
+          <!-- <GoalUpdater input_goal="{goal}" output_goal="{updated_goal}"> -->
+          <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+          <!-- </GoalUpdater> -->
         </Sequence>
       </RateController>
       <KeepRunningUntilFailure>
