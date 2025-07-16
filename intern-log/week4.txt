@@ -13,3 +13,9 @@
 ## July 15
 # Log
  - try using speed filter in costmap
+
+
+## July 16
+# Plan
+ - get robot to move to desired goal point on rviz
+ - make robot track moving goal point on rviz
