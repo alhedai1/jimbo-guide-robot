@@ -48,15 +48,15 @@ class UserFollower(Node):
         self.tracking_sub = self.create_subscription(Bool, 'tracking_cmd', self.tracking_callback, 10)
         
         # Timer for control loop
-        self.control_timer = self.create_timer(0.1, self.control_loop)  # 1Hz
+        # self.control_timer = self.create_timer(0.1, self.control_loop)  # 1Hz
         # self.control_timer = self.create_timer(0.05, self.control_loop)  # 20Hz
 
         self.alpha = 0.2 # cmd filter coefficient
         self.prev_linear_vel = 0.0
         self.prev_angular_vel = 0.0
 
-        self.goal_pub = self.create_publisher(PoseStamped, 'goal_pose', 1)
-        self.speed_limit_pub = self.create_publisher(SpeedLimit, 'speed_limit', 1)
+        self.goal_pub = self.create_publisher(PoseStamped, 'goal_update', 10)
+        self.speed_limit_pub = self.create_publisher(SpeedLimit, 'speed_limit', 10)
 
         # TF2 buffer and listener for transforms
         self.tf_buffer = Buffer()
@@ -65,7 +65,10 @@ class UserFollower(Node):
 
         self.tracking_status = False
 
-        self.init_pose_pub = self.create_publisher(PoseWithCovarianceStamped, 'initialpose', 1)
+        # self.init_pose_pub = self.create_publisher(PoseWithCovarianceStamped, 'initialpose', 10)
+
+        # self.navigator = BasicNavigator()
+        # self.navigator.waitUntilNav2Active()
         
         self.get_logger().info('User Follower initialized')
     
@@ -79,14 +82,24 @@ class UserFollower(Node):
         return
 
     def tracking_callback(self, msg):
-        """Handle tracking command"""
-        if not msg.data:
+        if msg.data:
+            self.tracking_status = True
+            self.get_logger().info('Tracking enabled - following user')
+        else:
             self.tracking_status = False
             self.stop_robot()
             self.get_logger().info('Tracking disabled - stopping robot')
-        else:
-            self.tracking_status = True
-            self.get_logger().info('Tracking enabled - following user')
+        
+        if self.tracking_status:
+            # dummy goal pose
+            goal_pose = PoseStamped()
+            goal_pose.header.frame_id = 'odom'
+            goal_pose.header.stamp = self.get_clock().now().to_msg()
+            goal_pose.pose.position.x = 0.5
+            goal_pose.pose.position.y = 0.0
+            q = quaternion_from_euler(0.0, 0.0, 0.0)  # No rotation
+            goal_pose.pose.orientation = Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
+            self.goal_pub.publish(goal_pose)
 
     
     def control_loop(self): # 10 Hz
@@ -114,17 +127,7 @@ class UserFollower(Node):
             )
             msg.pose.covariance = [0.0]*36  # or your desired covariance
 
-            self.init_pose_pub.publish(msg)
-
-            # dummy goal pose
-            goal_pose = PoseStamped()
-            goal_pose.header.frame_id = 'odom'
-            goal_pose.header.stamp = self.get_clock().now().to_msg()
-            goal_pose.pose.position.x = -0.5
-            goal_pose.pose.position.y = 0.0
-            q = quaternion_from_euler(0.0, 0.0, 0.0)  # No rotation
-            goal_pose.pose.orientation = Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
-            self.goal_pub.publish(goal_pose)
+            # self.init_pose_pub.publish(msg)
     
     def navigate_to_user(self, trans):
         try:
