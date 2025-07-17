@@ -37,6 +37,7 @@ setup(
         'console_scripts': [
             'safety_monitor = jimbo_navigation.safety_monitor:main',
             'user_follower = jimbo_navigation.user_follower:main',
+            'user_follower_2 = jimbo_navigation.user_follower_2:main',
             'tf_test = jimbo_navigation.tf_test:main',
             'tracking_cmd = jimbo_navigation.tracking_cmd:main',
         ],

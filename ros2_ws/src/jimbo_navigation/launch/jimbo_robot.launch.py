@@ -111,17 +111,17 @@ def generate_launch_description():
     # Add a delay before starting user_follower to ensure motor node is ready
     from launch.actions import TimerAction
     follower_node = TimerAction(
-        period=3.0,  # seconds
+        period=10.0,  # seconds
         actions=[
             Node(
                 package='jimbo_navigation',
-                executable='user_follower',
-                name='user_follower',
-                parameters=[{
-                    'target_distance': 1.0,
-                    'max_linear_velocity': 0.5,
-                    'max_angular_velocity': 1.0,
-                }],
+                executable='user_follower_2',
+                name='user_follower_2',
+                # parameters=[{
+                #     'target_distance': 1.0,
+                #     'max_linear_velocity': 0.5,
+                #     'max_angular_velocity': 1.0,
+                # }],
                 output='screen',
                 condition=IfCondition(LaunchConfiguration('enable_follower'))
             )
@@ -213,7 +213,7 @@ def generate_launch_description():
         follower_node,
         # realsense_launch,
         lidar_launch,
-        uwb_launch,
+        # uwb_launch,
         # nav_launch
         # full_nav_launch
     ])
