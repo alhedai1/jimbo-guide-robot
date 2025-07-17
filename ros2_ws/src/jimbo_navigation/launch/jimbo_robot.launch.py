@@ -158,10 +158,19 @@ def generate_launch_description():
             ])
         ])
     )
+
+    nav_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('jimbo_navigation'),
+                'launch',
+                'navigation.launch.py'
+            ])
+        ])
+    )
     
     # Launches full nav2 stack
-    # # Navigation2 bringup (conditional)
-    # nav2_bringup_launch = IncludeLaunchDescription(
+    # full_nav_launch = IncludeLaunchDescription(
     #     PythonLaunchDescriptionSource([
     #         FindPackageShare('nav2_bringup'),
     #         '/launch/bringup_launch.py'
@@ -174,62 +183,9 @@ def generate_launch_description():
     #             'config',
     #             'nav2_params.yaml'
     #         ])
-    #     }.items(),
-    #     condition=IfCondition(LaunchConfiguration('enable_navigation'))
+    #     }.items()
     # )
-
-    # Launch specific nav2 nodes
-    nav2_controller_node = Node(
-            package='nav2_controller',
-            executable='controller_server',
-            name='controller_server',
-            output='screen',
-            parameters=[LaunchConfiguration('nav2_params_file')],
-        )
     
-    nav2_bt_navigator_node = Node(
-            package='nav2_bt_navigator',
-            executable='bt_navigator',
-            name='bt_navigator',
-            output='screen',
-            parameters=[LaunchConfiguration('nav2_params_file')],
-        )
-
-    nav2_planner_server_node = Node(
-        package='nav2_planner',
-        executable='planner_server',
-        name='planner_server',
-        output='screen',
-        parameters=[LaunchConfiguration('nav2_params_file')],
-    )
-
-    recoveries_node = Node(
-        package='nav2_recoveries',
-        executable='recoveries_server',
-        name='recoveries_server',
-        output='screen',
-        parameters=[LaunchConfiguration('nav2_params_file')],
-    )
-    
-    nav2_lifecycle_manager_node = Node(
-        package='nav2_lifecycle_manager',
-        executable='lifecycle_manager',
-        name='lifecycle_manager_navigation',
-        output='screen',
-        parameters=[{
-            'use_sim_time': False,
-            'autostart': True,
-            'node_names': ['controller_server', 'bt_navigator']
-        }]
-    )
-    
-    # nav2_costmap_node = Node(
-    #         package='nav2_costmap_2d',
-    #         executable='nav2_costmap_2d',
-    #         name='local_costmap',
-    #         output='screen',
-    #         parameters=[LaunchConfiguration('nav2_params_file')],
-    #     )
     
     # RViz2 for visualization (conditional)
     rviz_node = Node(
@@ -258,8 +214,5 @@ def generate_launch_description():
         # realsense_launch,
         lidar_launch,
         uwb_launch,
-        # nav2_controller_node,
-        # nav2_bt_navigator_node,
-        # nav2_lifecycle_manager_node,
-        # nav2_costmap_node
+        nav_launch
     ])
