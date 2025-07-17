@@ -95,10 +95,14 @@ class UserFollower(Node):
             goal_pose = PoseStamped()
             goal_pose.header.frame_id = 'odom'
             goal_pose.header.stamp = self.get_clock().now().to_msg()
-            goal_pose.pose.position.x = 0.5
+            goal_pose.pose.position.x = 1.0
             goal_pose.pose.position.y = 0.0
             q = quaternion_from_euler(0.0, 0.0, 0.0)  # No rotation
             goal_pose.pose.orientation = Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
+            speed_limit = SpeedLimit()
+            speed_limit.percentage = True
+            speed_limit.speed_limit = 20.0  # 20% speed limit
+            self.speed_limit_pub.publish(speed_limit)
             self.goal_pub.publish(goal_pose)
 
     

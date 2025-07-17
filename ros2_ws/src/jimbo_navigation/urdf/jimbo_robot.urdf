@@ -73,7 +73,7 @@
       <inertia ixx="0.000025" ixy="0" ixz="0" iyy="0.000025" iyz="0" izz="0.000008"/>
     </inertial>
   </link>
-  <!-- LiDAR sensor (now with a simple visual) -->
+
   <link name="robot_lidar_link">
     <visual>
       <geometry>
@@ -84,6 +84,38 @@
       </material>
     </visual>
   </link>
+
+  <!-- Gazebo plugin for 2D lidar
+  <gazebo>
+    <sensor type="ray" name="lidar">
+      <pose>0 0 0 0 0 0</pose>
+      <visualize>true</visualize>
+      <update_rate>10</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-1.5708</min_angle>
+            <max_angle>1.5708</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.12</min>
+          <max>3.5</max>
+          <resolution>0.01</resolution>
+        </range>
+      </ray>
+      <plugin name="gazebo_ros_laser" filename="libgazebo_ros_ray_sensor.so">
+        <ros>
+          <remapping>~/out:=scan</remapping>
+        </ros>
+        <output_type>sensor_msgs/LaserScan</output_type>
+        <frame_name>robot_lidar_link</frame_name>
+      </plugin>
+    </sensor>
+  </gazebo> -->
+
   <!-- Camera sensor (now with a simple visual) -->
   <link name="robot_camera_link">
     <visual>

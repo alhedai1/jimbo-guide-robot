@@ -170,21 +170,21 @@ def generate_launch_description():
     )
     
     # Launches full nav2 stack
-    # full_nav_launch = IncludeLaunchDescription(
-    #     PythonLaunchDescriptionSource([
-    #         FindPackageShare('nav2_bringup'),
-    #         '/launch/bringup_launch.py'
-    #     ]),
-    #     launch_arguments={
-    #         'map': LaunchConfiguration('map'),
-    #         'use_sim_time': LaunchConfiguration('use_sim_time'),
-    #         'params_file': PathJoinSubstitution([
-    #             FindPackageShare('jimbo_navigation'),
-    #             'config',
-    #             'nav2_params.yaml'
-    #         ])
-    #     }.items()
-    # )
+    full_nav_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            FindPackageShare('nav2_bringup'),
+            '/launch/bringup_launch.py'
+        ]),
+        launch_arguments={
+            'map': '/home/jimbo/jimbo-guide-robot/ros2_ws/src/jimbo_navigation/maps/map.yaml',
+            'use_sim_time': LaunchConfiguration('use_sim_time'),
+            'params_file': PathJoinSubstitution([
+                FindPackageShare('jimbo_navigation'),
+                'config',
+                'nav2_params_full.yaml'
+            ])
+        }.items()
+    )
     
     
     # RViz2 for visualization (conditional)
@@ -205,7 +205,7 @@ def generate_launch_description():
         enable_follower_arg,
         # enable_navigation_arg,
         enable_rviz_arg,
-        # # map_file_arg,
+        # map_file_arg,
         # nav2_params_file_arg,
         robot_description_launch,
         rviz_node,
@@ -214,5 +214,6 @@ def generate_launch_description():
         # realsense_launch,
         lidar_launch,
         uwb_launch,
-        nav_launch
+        # nav_launch
+        # full_nav_launch
     ])
