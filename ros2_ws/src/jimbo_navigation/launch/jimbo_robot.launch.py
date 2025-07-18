@@ -213,7 +213,7 @@ def generate_launch_description():
         follower_node,
         # realsense_launch,
         lidar_launch,
-        # uwb_launch,
+        uwb_launch,
         # nav_launch
         # full_nav_launch
     ])
