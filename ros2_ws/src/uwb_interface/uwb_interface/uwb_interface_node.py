@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray, Float32
-from geometry_msgs.msg import Point, TransformStamped
+from geometry_msgs.msg import PointStamped, TransformStamped
 import serial
 import time
 import numpy as np
@@ -134,10 +134,12 @@ class UWBInterfaceNode(Node):
         # Estimate position
         pos = self.estimate_tag_position(tags, self.distances)
         filtered_pos = self.kalman_update(np.array(pos))
-        pos_msg = Point()
-        pos_msg.x = filtered_pos[1]
-        pos_msg.y = -filtered_pos[0] 
-        pos_msg.z = 0.0  # Assuming 2D position
+        pos_msg = PointStamped()
+        pos_msg.header.stamp = self.get_clock().now()
+        pos_msg.header.frame_id = 'base_footprint'
+        pos_msg.point.x = filtered_pos[1]
+        pos_msg.point.y = -filtered_pos[0] 
+        pos_msg.point.z = 0.0  # Assuming 2D position
         self.pos_pub.publish(pos_msg)
 
         # Publish TF of person position relative to robot
