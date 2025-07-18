@@ -73,7 +73,7 @@ class UWBInterfaceNode(Node):
 
         self.distances = [0.0] * len(self.tags)
         # self.dist_pub = self.create_publisher(Float32MultiArray, 'uwb_distances', 10)
-        self.pos_pub = self.create_publisher(Point, 'uwb_filtered_position', 10)
+        self.pos_pub = self.create_publisher(PointStamped, 'uwb_filtered_position', 10)
         self.timer = self.create_timer(0.1, self.request_sensor_data)  # 10Hz
 
         # State variables
@@ -135,7 +135,7 @@ class UWBInterfaceNode(Node):
         pos = self.estimate_tag_position(tags, self.distances)
         filtered_pos = self.kalman_update(np.array(pos))
         pos_msg = PointStamped()
-        pos_msg.header.stamp = self.get_clock().now()
+        pos_msg.header.stamp = self.get_clock().now().to_msg()
         pos_msg.header.frame_id = 'base_footprint'
         pos_msg.point.x = filtered_pos[1]
         pos_msg.point.y = -filtered_pos[0] 
@@ -147,8 +147,8 @@ class UWBInterfaceNode(Node):
         transform.header.stamp = self.get_clock().now().to_msg()
         transform.header.frame_id = 'base_footprint'
         transform.child_frame_id = 'uwb_person'
-        transform.transform.translation.x = pos_msg.x
-        transform.transform.translation.y = pos_msg.y
+        transform.transform.translation.x = pos_msg.point.x
+        transform.transform.translation.y = pos_msg.point.y
         transform.transform.translation.z = 0.0
         transform.transform.rotation.w = 1.0  # No rotation
         transform.transform.rotation.x = 0.0

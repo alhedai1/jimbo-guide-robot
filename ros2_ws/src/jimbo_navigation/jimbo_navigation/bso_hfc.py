@@ -7,20 +7,24 @@
 import rclpy
 import rclpy.duration
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, PointStamped
+from std_msgs.msg import Bool
+from geometry_msgs.msg import Twist, PointStamped, PoseStamped
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
 from tf2_ros import Buffer, TransformListener
+import tf2_geometry_msgs
+from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
 from tf_transformations import euler_from_quaternion
 import numpy as np
 from scipy.optimize import minimize
+import time
 
 class BSOHFCController(Node):
     def __init__(self):
         super().__init__('bso_hfc_controller')
 
         self.declare_parameter('robot_radius', 0.25)
-        self.declare_parameter('target_distance_threshold', 0.4)
+        self.declare_parameter('target_distance_threshold', 0.0)
         self.declare_parameter('spline_horizon', 1.5)  # meters
         self.declare_parameter('num_ctrl_points', 5)
         self.declare_parameter('num_spline_points', 30)
@@ -35,17 +39,32 @@ class BSOHFCController(Node):
         self.laser = None
 
         self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
 
         self.sub_uwb = self.create_subscription(PointStamped, '/uwb_filtered_position', self.uwb_callback, 10)
         self.sub_odom = self.create_subscription(Odometry, '/odom', self.odom_callback, 10)
-        self.sub_scan = self.create_subscription(LaserScan, '/scan', self.scan_callback, 10)
+        qos = QoSProfile(depth=10, durability=DurabilityPolicy.VOLATILE, reliability=ReliabilityPolicy.BEST_EFFORT)
+        self.sub_scan = self.create_subscription(LaserScan, '/scan', self.scan_callback, qos)
+        self.subscription3 = self.create_subscription(Bool, '/tracking', self.tracking_callback, 10)
         self.pub_cmd = self.create_publisher(Twist, '/cmd_vel', 10)
+
+        self.track = False
 
         self.timer = self.create_timer(0.1, self.control_loop)
 
+        # self.pub_cmd.publish(Twist())
+
     def uwb_callback(self, msg):
-        odom_pos = self.tf_buffer.transform(msg, 'odom', timeout=rclpy.duration.Duration(seconds=1.0))
-        self.target = np.array([odom_pos.point.x, odom_pos.point.y])
+        if self.track:
+            pose = PoseStamped()
+            pose.header.frame_id = msg.header.frame_id
+            # self.get_logger().info(f"Transforming from {pose.header.frame_id} to odom")
+            pose.header.stamp = rclpy.time.Time().to_msg()
+            pose.pose.position = msg.point
+            pose.pose.orientation.w = 1.0
+            odom_pose = self.tf_buffer.transform(pose, 'odom', timeout=rclpy.duration.Duration(seconds=1.0))
+            self.target = np.array([odom_pose.pose.position.x, odom_pose.pose.position.y])
+            self.track = False
 
     def odom_callback(self, msg):
         pos = msg.pose.pose.position
@@ -55,6 +74,10 @@ class BSOHFCController(Node):
 
     def scan_callback(self, msg):
         self.laser = msg
+    
+    def tracking_callback(self, msg):
+        if msg.data == True:
+            self.track = True
 
     def control_loop(self):
         if self.pose is None or self.target is None or self.laser is None:
@@ -83,6 +106,7 @@ class BSOHFCController(Node):
                 cost += self.obstacle_cost(pt)
             cost += self.smoothness_cost(ctrl_pts)
             cost += 10.0 * np.linalg.norm(traj[:, -1] - goal)  # end goal cost
+            self.get_logger().info(f"Cost: {cost:.2f}, Goal dist: {np.linalg.norm(traj[:, -1] - goal):.2f}")
             return cost
 
         result = minimize(cost_fn, cps_init, method='L-BFGS-B')
@@ -107,6 +131,7 @@ class BSOHFCController(Node):
         return np.vstack((spline_x, spline_y))
 
     def obstacle_cost(self, pt):
+        return 0.0
         angle_min = self.laser.angle_min
         angle_inc = self.laser.angle_increment
         ranges = np.array(self.laser.ranges)

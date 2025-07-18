@@ -111,11 +111,11 @@ def generate_launch_description():
     # Add a delay before starting user_follower to ensure motor node is ready
     from launch.actions import TimerAction
     follower_node = TimerAction(
-        period=10.0,  # seconds
+        period=5.0,  # seconds
         actions=[
             Node(
                 package='jimbo_navigation',
-                executable='user_follower_2',
+                executable='bso_hfc',
                 name='user_follower_2',
                 # parameters=[{
                 #     'target_distance': 1.0,
@@ -207,9 +207,9 @@ def generate_launch_description():
         enable_rviz_arg,
         # map_file_arg,
         # nav2_params_file_arg,
+        motor_node,
         robot_description_launch,
         rviz_node,
-        motor_node,
         follower_node,
         # realsense_launch,
         lidar_launch,
