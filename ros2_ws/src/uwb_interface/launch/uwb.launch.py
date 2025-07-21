@@ -12,5 +12,11 @@ def generate_launch_description():
                 'baudrate': 115200
             }],
             output='screen'
-        )
+        ),
+        # Node(
+        #     package='uwb_interface',
+        #     executable='uwb_fake_publisher',
+        #     name='uwb_fake_publisher',
+        #     output='screen'
+        # )
     ])

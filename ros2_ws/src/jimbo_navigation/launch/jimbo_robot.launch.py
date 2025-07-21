@@ -111,7 +111,7 @@ def generate_launch_description():
     # Add a delay before starting user_follower to ensure motor node is ready
     from launch.actions import TimerAction
     follower_node = TimerAction(
-        period=5.0,  # seconds
+        period=1.0,  # seconds
         actions=[
             Node(
                 package='jimbo_navigation',

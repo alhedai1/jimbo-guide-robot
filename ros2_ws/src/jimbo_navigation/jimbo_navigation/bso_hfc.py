@@ -7,7 +7,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, PointStamped, PoseStamped
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, Path
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool
 from tf_transformations import euler_from_quaternion
@@ -15,18 +15,21 @@ import numpy as np
 from scipy.optimize import minimize
 from tf2_ros import TransformListener, Buffer
 from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
+import tf2_geometry_msgs
+import time
+import math
 
 class BSOHFCController(Node):
     def __init__(self):
         super().__init__('bso_hfc_controller')
 
         self.declare_parameter('robot_radius', 0.2)
-        self.declare_parameter('dthr', 0.1)  # obstacle clearance threshold
-        self.declare_parameter('v_max', 0.1)
-        self.declare_parameter('a_max', 0.2)
-        self.declare_parameter('target_distance_threshold', 0.1)
-        self.declare_parameter('num_ctrl_points', 7)
-        self.declare_parameter('num_spline_points', 30)
+        self.declare_parameter('dthr', 0.2)  # obstacle clearance threshold
+        self.declare_parameter('v_max', 0.03)
+        self.declare_parameter('a_max', 0.1)
+        self.declare_parameter('target_distance_threshold', 0.2)
+        self.declare_parameter('num_ctrl_points', 4)
+        self.declare_parameter('num_spline_points', 10)
 
         self.robot_radius = self.get_parameter('robot_radius').value
         self.dthr = self.get_parameter('dthr').value
@@ -36,11 +39,13 @@ class BSOHFCController(Node):
         self.num_ctrl_points = self.get_parameter('num_ctrl_points').value
         self.num_spline_points = self.get_parameter('num_spline_points').value
 
-        self.track = False
+        self.track = True
 
         self.pose = None
         self.target = None
         self.laser = None
+
+        self.distance_to_target = None
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -51,8 +56,18 @@ class BSOHFCController(Node):
         self.sub_scan = self.create_subscription(LaserScan, '/scan', self.scan_callback, qos)
         self.subscription3 = self.create_subscription(Bool, '/tracking', self.tracking_callback, 10)
         self.pub_cmd = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.path_pub = self.create_publisher(Path, '/bso_hfc_path', 10)
 
-        self.timer = self.create_timer(0.1, self.control_loop)
+        self.spline = None
+        self.traj_index = 1
+        self.control_timer = self.create_timer(0.05, self.control_loop)
+        self.optimize_timer = self.create_timer(0.5, self.optimize_path)
+    
+    def tracking_callback(self, msg):
+        # if msg.data == True:
+        #     self.get_logger().info(f"Recevied tracking command.")
+        #     self.track = True
+        return
 
     def odom_callback(self, msg):
         pos = msg.pose.pose.position
@@ -71,36 +86,52 @@ class BSOHFCController(Node):
             pose.pose.orientation.w = 1.0
             odom_pose = self.tf_buffer.transform(pose, 'odom', timeout=rclpy.duration.Duration(seconds=1.0))
             self.target = np.array([odom_pose.pose.position.x, odom_pose.pose.position.y])
-            self.track = False
+            # self.track = False
 
     def scan_callback(self, msg):
         self.laser = msg
 
-    def control_loop(self):
+    def optimize_path(self):
         if self.pose is None or self.target is None or self.laser is None:
             return
 
         start = self.pose[:2]
         goal = self.target
         distance = np.linalg.norm(goal - start)
+
+        self.get_logger().info(f'start: {start}, goal: {goal}, distance: {distance}')
+        # return
+
         if distance < self.target_distance_threshold:
             self.stop()
             return
 
+        # if np.linalg.norm(goal - start) < 0.5:
+        #     # Simple linear path fallback
+        #     control = [start + (goal - start) * i / (self.num_points + 1) for i in range(1, self.num_points + 1)]
+        #     path = [start] + control + [goal]
+        #     self.get_logger().info("Skipping optimization for short distance. Using straight line.")
+        #     return path
+
         cps = np.linspace(start, goal, self.num_ctrl_points).T  # (2, N)
         fixed_start = cps[:, 0]
         fixed_end = cps[:, -1]
-        initial_vars = cps[:, 2:-2].flatten()
+        initial_vars = cps[:, 1:-1].flatten()
+        initial_vars += np.random.normal(scale=0.01, size=initial_vars.shape)
 
         def penalty(x, y):
             return (x - y)**2 if x <= y else 0.0
 
         def compute_cost(vars):
+            if np.any(np.isnan(vars)) or np.any(np.isinf(vars)):
+                self.get_logger().warn("Invalid control point values: NaN or Inf detected!")
+                return 1e6
+
             ctrl_pts = np.column_stack((
                 fixed_start[:, None],
-                cps[:, 1:2],
+                # cps[:, 1:2],
                 vars.reshape(2, -1),
-                cps[:, -2:-1],
+                # cps[:, -2:-1],
                 fixed_end[:, None]
             ))
             traj = self.eval_bspline(ctrl_pts, self.num_spline_points)
@@ -118,16 +149,48 @@ class BSOHFCController(Node):
             vels = np.diff(ctrl_pts, axis=1) / dt
             accs = np.diff(vels, axis=1) / dt
             for v in vels.T:
-                cost += penalty(np.linalg.norm(v), self.v_max)
+                v_norm = np.linalg.norm(v)
+                if np.isnan(v_norm):
+                    return 1e6
+                cost += penalty(v_norm, self.v_max)
             for a in accs.T:
-                cost += penalty(np.linalg.norm(a), self.a_max)
+                a_norm = np.linalg.norm(a)
+                if np.isnan(v_norm):
+                    return 1e6
+                cost += penalty(a_norm, self.a_max)
+            
+            if np.isnan(cost) or np.isinf(cost):
+                print("NaN/inf detected in cost. Debug info:")
+                print("ctrl_pts:", ctrl_pts)
+                print("traj shape:", traj.shape)
+                print("jerk shape:", jerk.shape)
+                return 1e6  # Large penalty
 
             return cost
 
-        result = minimize(compute_cost, initial_vars, method='L-BFGS-B')
+        # result = minimize(compute_cost, initial_vars, method='L-BFGS-B')
+        start_time = time.time()
+        result = minimize(
+            compute_cost,
+            initial_vars,
+            method='L-BFGS-B',
+            options={
+                'maxiter': 15,
+                'disp': False,
+                'gtol': 1e-3,  # allow slightly larger gradients
+                "ftol": 1e-6,        # Early stopping
+                'maxls': 40,   # increase line search steps
+            }
+        )
+        elapsed = time.time() - start_time
+        self.get_logger().info(f"Spline optimized in {elapsed:.3f} seconds.")
         if not result.success:
             self.get_logger().warn(f"Spline optimization failed: {result.message}")
             return
+        else:
+            self.get_logger().info(f"Spline optimization SUCCESS")
+            
+            # return
 
         opt_ctrl_pts = np.column_stack((
             fixed_start[:, None],
@@ -138,7 +201,26 @@ class BSOHFCController(Node):
         ))
 
         traj = self.eval_bspline(opt_ctrl_pts, self.num_spline_points)
-        self.follow_point(traj[:, 1])
+        self.publish_spline_path(traj)
+        self.spline = traj  # Save the result
+        self.traj_index = 1
+
+    def control_loop(self):
+        if self.spline is None or self.pose is None:
+            return
+        # if self.traj_index >= self.spline.shape[1]:
+        #     self.stop()
+        #     return
+        if np.linalg.norm(self.pose[:2] - self.target) < self.target_distance_threshold:
+            self.stop()
+            return
+
+        index = min(self.traj_index + 3, self.spline.shape[1] - 1)
+        point_to_follow = self.spline[:, index]
+        if np.linalg.norm(self.pose[:2] - point_to_follow) < 0.1:
+            self.traj_index += 1
+        point_to_follow = self.spline[:, self.traj_index]
+        self.follow_point(point_to_follow)
 
     def eval_bspline(self, ctrl_pts, num_points):
         from scipy.interpolate import BSpline
@@ -163,24 +245,58 @@ class BSOHFCController(Node):
         idx = int((a - angle_min) / angle_inc)
         if 0 <= idx < len(ranges):
             dist = ranges[idx]
-            if dist < self.dthr:
-                return (self.dthr - dist)**2 * 100.0
+            margin = 0.2  # safe margin
+            cost = np.exp(-5 * (dist - self.dthr + margin))  # smooth decay
+            return cost if dist < self.dthr + margin else 0.0
         return 0.0
 
     def follow_point(self, pt):
         dx = pt[0] - self.pose[0]
         dy = pt[1] - self.pose[1]
-        angle = np.arctan2(dy, dx)
-        angle_diff = angle - self.pose[2]
+        angle_to_target = np.arctan2(dy, dx)
+        angle_diff = angle_to_target - self.pose[2]
         angle_diff = np.arctan2(np.sin(angle_diff), np.cos(angle_diff))
+        distance = np.hypot(dx, dy)
 
+        self.get_logger().info(f"Angle difference: {np.degrees(angle_diff)}")
+
+        # Parameters
+        max_lin_vel = 0.05  # m/s
+        max_ang_vel = 0.1  # rad/s
+        angle_gain = 1.0   # angular proportional gain
+        slowdown_angle_thresh = 1.0  # rad
+        min_lin_vel = 0.005
+
+        # Adjust linear speed based on angle error
+        speed_scale = max(0.0, 1.0 - abs(angle_diff) / slowdown_angle_thresh)
         cmd = Twist()
-        cmd.linear.x = 0.2 if abs(angle_diff) < 0.5 else 0.0
-        cmd.angular.z = 1.5 * angle_diff
+        cmd.linear.x = max(min_lin_vel, max_lin_vel * speed_scale) if distance > 0.05 else 0.0
+        cmd.angular.z = np.clip(angle_gain * angle_diff, -max_ang_vel, max_ang_vel)
+
+        self.get_logger().info("Computing cmd command")
+
         self.pub_cmd.publish(cmd)
+
 
     def stop(self):
         self.pub_cmd.publish(Twist())
+    
+    def publish_spline_path(self, traj):
+        path_msg = Path()
+        path_msg.header.stamp = self.get_clock().now().to_msg()
+        path_msg.header.frame_id = 'odom'  # Adjust if you're in another frame
+
+        for i in range(traj.shape[1]):
+            pose = PoseStamped()
+            pose.header = path_msg.header
+            pose.pose.position.x = traj[0, i]
+            pose.pose.position.y = traj[1, i]
+            pose.pose.position.z = 0.0
+            pose.pose.orientation.w = 1.0  # no rotation
+            path_msg.poses.append(pose)
+
+        self.path_pub.publish(path_msg)
+
 
 
 def main(args=None):

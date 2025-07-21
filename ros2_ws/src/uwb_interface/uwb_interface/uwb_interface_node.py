@@ -45,7 +45,7 @@ class UWBInterfaceNode(Node):
                 self.get_logger().error(f"Failed to connect to {port}: {e}")
                 # Create a dummy serial object to maintain indexing
                 self.tags.append(None)
-        time.sleep(2)
+        time.sleep(0.5)
 
         # Initialize UWB devices
         for i, tag in enumerate(self.tags):
@@ -84,8 +84,10 @@ class UWBInterfaceNode(Node):
         self.kalman_initialized = False
         self.kalman_state = np.zeros(4)  # [x, y, vx, vy]
         self.kalman_P = np.eye(4)
-        self.kalman_Q = np.eye(4) * 0.005   # Lower process noise
-        self.kalman_R = np.eye(2) * 0.2     # Higher measurement noise
+        # self.kalman_Q = np.eye(4) * 0.005   # Lower process noise
+        # self.kalman_R = np.eye(2) * 0.2     # Higher measurement noise
+        self.kalman_Q = np.diag([0.01, 0.01, 0.1, 0.1])   # allow more position and velocity drift
+        self.kalman_R = np.diag([0.3, 0.3])               # trust UWB measurements less
         self.kalman_F = np.eye(4)
         self.kalman_H = np.zeros((2, 4))
         self.kalman_H[0, 0] = 1
@@ -173,6 +175,7 @@ class UWBInterfaceNode(Node):
                 parts = line.split(',')
                 # addr = parts[3]
                 dist = float(parts[7])
+                # if 0.2 < dist < 10.0:  # sanity check (adjust as needed)
                 self.distances[tag_index] = dist
                 # qf = int(parts[2].split(':')[1].strip())
             except Exception as e:
