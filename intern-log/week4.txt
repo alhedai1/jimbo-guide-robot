@@ -19,3 +19,9 @@
 # Plan
  - get robot to move to desired goal point on rviz
  - make robot track moving goal point on rviz
+
+
+## July 17, 18
+# Log
+ - tried basic DWA-like algorithm to move robot from starting position to goal position
+ - implemented B-spline optimization human following controller (BSO-HFC) node -> still testing

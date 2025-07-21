@@ -1,0 +1,5 @@
+
+## July 21
+# Plan
+ - test BSO-HFC node
+ - test if robot can move from starting position to goal position, while avoiding obstacle
