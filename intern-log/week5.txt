@@ -3,3 +3,9 @@
 # Plan
  - test BSO-HFC node
  - test if robot can move from starting position to goal position, while avoiding obstacle
+
+# Done
+ - robot moves to desired goal position using bso-hfc
+ - not sure about avoiding obstacles yet
+ - need to figure out how to test obstacle avoidance while tracking (given fixed testbed)
+
