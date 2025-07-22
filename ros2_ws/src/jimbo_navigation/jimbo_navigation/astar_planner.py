@@ -11,11 +11,18 @@ class AStarPlanner:
         self.grid = occ_grid
         self.res = resolution
         self.origin = origin
-        self.height, self.width = occ_grid.shape
+        self.width = None
+        self.height = None
         self.motion = [  # 8 directions
             (-1, 0), (1, 0), (0, -1), (0, 1),
             (-1, -1), (-1, 1), (1, -1), (1, 1)
         ]
+    
+    def update_grid(self, new_grid, grid_res, grid_origin):
+        self.grid = new_grid
+        self.res = grid_res
+        self.origin = grid_origin
+        self.height, self.width = self.grid.shape
 
     def world_to_grid(self, x, y):
         gx = int((x - self.origin[0]) / self.res)
@@ -45,17 +52,17 @@ class AStarPlanner:
         while open_list:
             _, cost, current, parent = heapq.heappop(open_list)
 
+            if current in came_from:
+                continue  # Already processed
+            came_from[current] = parent
+
             if current == (gx, gy):
                 path = [(gx, gy)]
-                while current in came_from:
+                while current in came_from and came_from[current] is not None:
                     current = came_from[current]
                     path.append(current)
                 path.reverse()
                 return [self.grid_to_world(x, y) for x, y in path]
-
-            if current in came_from:
-                continue
-            came_from[current] = parent
 
             for dx, dy in self.motion:
                 nx, ny = current[0] + dx, current[1] + dy
@@ -66,4 +73,5 @@ class AStarPlanner:
                     cost_so_far[(nx, ny)] = new_cost
                     priority = new_cost + self.heuristic((nx, ny), (gx, gy))
                     heapq.heappush(open_list, (priority, new_cost, (nx, ny), current))
+
         return None

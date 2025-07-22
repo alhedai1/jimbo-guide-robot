@@ -7,7 +7,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, PointStamped, PoseStamped
-from nav_msgs.msg import Odometry, Path
+from nav_msgs.msg import Odometry, Path, OccupancyGrid
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool
 from tf_transformations import euler_from_quaternion
@@ -18,14 +18,14 @@ from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
 import tf2_geometry_msgs
 import time
 import math
-from astar_planner import AStarPlanner
+from jimbo_navigation.astar_planner import AStarPlanner
 
 class BSOHFCController(Node):
     def __init__(self):
         super().__init__('bso_hfc_controller')
 
         self.declare_parameter('robot_radius', 0.2)
-        self.declare_parameter('dthr', 0.2)  # obstacle clearance threshold
+        self.declare_parameter('dthr', 0.4)  # obstacle clearance threshold
         self.declare_parameter('v_max', 0.03)
         self.declare_parameter('a_max', 0.1)
         self.declare_parameter('target_distance_threshold', 0.2)
@@ -48,8 +48,7 @@ class BSOHFCController(Node):
 
         self.occ_grid = None
         self.grid_res = None
-
-        self.distance_to_target = None
+        self.grid_origin = None
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -59,6 +58,7 @@ class BSOHFCController(Node):
         qos = QoSProfile(depth=10, durability=DurabilityPolicy.VOLATILE, reliability=ReliabilityPolicy.BEST_EFFORT)
         self.sub_scan = self.create_subscription(LaserScan, '/scan', self.scan_callback, qos)
         self.subscription3 = self.create_subscription(Bool, '/tracking', self.tracking_callback, 10)
+        self.sub_occupancy = self.create_subscription(OccupancyGrid, 'my_occupancy_grid', self.occupancy_callback, 10)
         self.pub_cmd = self.create_publisher(Twist, '/cmd_vel', 10)
         self.path_pub = self.create_publisher(Path, '/bso_hfc_path', 10)
 
@@ -67,7 +67,7 @@ class BSOHFCController(Node):
         # self.control_timer = self.create_timer(0.05, self.control_loop)
         self.optimize_timer = self.create_timer(0.5, self.optimize_path)
 
-        self.astar = AStarPlanner(self.occ_grid, self.grid_res, self.pose[:2])
+        self.astar = AStarPlanner(self.occ_grid, self.grid_res, self.grid_origin)
     
     def tracking_callback(self, msg):
         # if msg.data == True:
@@ -82,7 +82,6 @@ class BSOHFCController(Node):
         self.pose = np.array([pos.x, pos.y, yaw])
 
     def uwb_callback(self, msg):
-        # self.target = np.array([msg.point.x, msg.point.y]) # uwb_filtered_position is in base_footprint frame
         if self.track:
             pose = PoseStamped()
             pose.header.frame_id = msg.header.frame_id
@@ -96,9 +95,18 @@ class BSOHFCController(Node):
 
     def scan_callback(self, msg):
         self.laser = msg
+    
+    def occupancy_callback(self, msg):
+        width = msg.info.width
+        height = msg.info.height
+        data = np.array(msg.data, dtype=np.int8).reshape((height, width))
+        self.occ_grid = data
+        self.grid_res = msg.info.resolution
+        self.grid_origin = (msg.info.origin.position.x, msg.info.origin.position.y)
+        self.astar.update_grid(data, self.grid_res, self.grid_origin)
 
     def optimize_path(self):
-        if self.pose is None or self.target is None or self.laser is None:
+        if self.pose is None or self.target is None or self.laser is None or self.occ_grid is None:
             return
 
         start = self.pose[:2]
@@ -128,6 +136,10 @@ class BSOHFCController(Node):
             self.get_logger().warn(f"A* failed to find path")
             return
         path_np = np.array(path).T
+        # self.get_logger().info(f"Length of path: {len(path)}, Shape of Path: {path_np.shape}\nPath: {path}")
+        # self.publish_spline_path(path_np)
+        # self.get_logger().info(f"Published A* path")
+        
         cps = path_np[:, ::max(1, len(path_np[0]) // self.num_ctrl_points)]
 
         fixed_start = cps[:, 0]
@@ -217,7 +229,7 @@ class BSOHFCController(Node):
         ))
 
         traj = self.eval_bspline(opt_ctrl_pts, self.num_spline_points)
-        self.publish_spline_path(path)
+        self.publish_spline_path(traj)
         self.spline = traj  # Save the result
         self.traj_index = 1
 
@@ -312,6 +324,7 @@ class BSOHFCController(Node):
             path_msg.poses.append(pose)
 
         self.path_pub.publish(path_msg)
+
 
 
 

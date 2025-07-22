@@ -39,7 +39,8 @@ setup(
             'user_follower = jimbo_navigation.user_follower:main',
             'user_follower_2 = jimbo_navigation.user_follower_2:main',
             'tf_test = jimbo_navigation.tf_test:main',
-            'bso_hfc = jimbo_navigation.bso_hfc:main'
+            'bso_hfc = jimbo_navigation.bso_hfc:main',
+            'occ_grid = jimbo_navigation.occ_grid:main'
         ],
     },
 )

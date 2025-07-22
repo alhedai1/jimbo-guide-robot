@@ -8,6 +8,8 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from launch.conditions import IfCondition
 import os
+from ament_index_python.packages import get_package_share_directory
+from launch.actions import ExecuteProcess
 
 def generate_launch_description():
     # Get the package directory
@@ -80,54 +82,7 @@ def generate_launch_description():
             ])
         ])
     )
-    
 
-    # Motor interface node (conditional) - start first
-    motor_node = Node(
-        package='motor_interface_pkg',
-        executable='motor_serial_node',
-        name='motor_serial_node',
-        parameters=[{
-            'port': '/dev/motor_arduino',
-            'baudrate': 115200,
-            'wheel_radius': 0.0635,
-            'wheel_base': 0.3
-        }],
-        output='screen',
-        condition=IfCondition(LaunchConfiguration('enable_motor'))
-    )
-
-    # UWB launch (always enabled)
-    uwb_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('uwb_interface'),
-                'launch',
-                'uwb.launch.py'
-            ])
-        ])
-    )
-
-    # Add a delay before starting user_follower to ensure motor node is ready
-    from launch.actions import TimerAction
-    follower_node = TimerAction(
-        period=1.0,  # seconds
-        actions=[
-            Node(
-                package='jimbo_navigation',
-                executable='bso_hfc',
-                name='user_follower_2',
-                # parameters=[{
-                #     'target_distance': 1.0,
-                #     'max_linear_velocity': 0.5,
-                #     'max_angular_velocity': 1.0,
-                # }],
-                output='screen',
-                condition=IfCondition(LaunchConfiguration('enable_follower'))
-            )
-        ]
-    )
-    
     # RealSense camera launch (conditional)
     realsense_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
@@ -157,6 +112,64 @@ def generate_launch_description():
                 'ydlidar_launch.py'
             ])
         ])
+    )
+    
+
+    # Motor interface node (conditional) - start first
+    motor_node = Node(
+        package='motor_interface_pkg',
+        executable='motor_serial_node',
+        name='motor_serial_node',
+        parameters=[{
+            'port': '/dev/motor_arduino',
+            'baudrate': 115200,
+            'wheel_radius': 0.0635,
+            'wheel_base': 0.3
+        }],
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('enable_motor'))
+    )
+
+    # UWB launch (always enabled)
+    uwb_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('uwb_interface'),
+                'launch',
+                'uwb.launch.py'
+            ])
+        ])
+    )
+
+    occupancy_node = Node(
+        package='jimbo_navigation',
+        executable='occ_grid',
+        name='occ_grid',
+        parameters=[{
+            'grid_size': 10.0,
+            'resolution': 0.05
+        }],
+        output='screen'
+    )
+
+    # Add a delay before starting user_follower to ensure motor node is ready
+    from launch.actions import TimerAction
+    bso_hfc_node = TimerAction(
+        period=1.0,  # seconds
+        actions=[
+            Node(
+                package='jimbo_navigation',
+                executable='bso_hfc',
+                name='bso_hfc',
+                # parameters=[{
+                #     'target_distance': 1.0,
+                #     'max_linear_velocity': 0.5,
+                #     'max_angular_velocity': 1.0,
+                # }],
+                output='screen',
+                condition=IfCondition(LaunchConfiguration('enable_follower'))
+            )
+        ]
     )
 
     nav_launch = IncludeLaunchDescription(
@@ -196,6 +209,29 @@ def generate_launch_description():
         output='screen',
         condition=IfCondition(LaunchConfiguration('enable_rviz'))
     )
+
+    gazebo_launch = ExecuteProcess(
+        cmd=[
+            'ign', 'gazebo', 'empty.sdf'
+        ],
+        output='screen'
+    )
+
+    spawn_node = ExecuteProcess(
+        cmd=[
+            'ign', 'service', '-s', '/world/empty/create',
+            '--reqtype', 'ignition.msgs.EntityFactory',
+            '--reptype', 'ignition.msgs.Boolean',
+            '--timeout', '1000',
+            '--req', 'sdf_filename: "/home/jimbo/jimbo-guide-robot/ros2_ws/src/jimbo_navigation/urdf/jimbo_robot_converted.sdf", name: "urdf_model"'
+        ],
+        output='screen'
+    )
+
+    delayed_spawn = TimerAction(
+        period=5.0,  # seconds
+        actions=[spawn_node]
+    )
     
     return LaunchDescription([
         use_sim_time_arg,
@@ -210,10 +246,13 @@ def generate_launch_description():
         motor_node,
         robot_description_launch,
         rviz_node,
-        follower_node,
-        # realsense_launch,
-        lidar_launch,
         uwb_launch,
+        # lidar_launch,
+        # occupancy_node,
+        # bso_hfc_node,
+        gazebo_launch,
+        delayed_spawn,
+        # realsense_launch,
         # nav_launch
         # full_nav_launch
     ])

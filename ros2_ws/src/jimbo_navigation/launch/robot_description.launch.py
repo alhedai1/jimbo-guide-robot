@@ -102,6 +102,6 @@ def generate_launch_description():
         use_sim_time_arg,
         robot_state_publisher_node,
         joint_state_publisher_node,
-        camera_tf_node,
-        lidar_tf_node,
+        # camera_tf_node,
+        # lidar_tf_node,
     ]) 

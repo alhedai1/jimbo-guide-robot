@@ -84,10 +84,10 @@ class UWBInterfaceNode(Node):
         self.kalman_initialized = False
         self.kalman_state = np.zeros(4)  # [x, y, vx, vy]
         self.kalman_P = np.eye(4)
-        # self.kalman_Q = np.eye(4) * 0.005   # Lower process noise
-        # self.kalman_R = np.eye(2) * 0.2     # Higher measurement noise
-        self.kalman_Q = np.diag([0.01, 0.01, 0.1, 0.1])   # allow more position and velocity drift
-        self.kalman_R = np.diag([0.3, 0.3])               # trust UWB measurements less
+        self.kalman_Q = np.eye(4) * 0.005   # Lower process noise
+        self.kalman_R = np.eye(2) * 0.2     # Higher measurement noise
+        # self.kalman_Q = np.diag([0.01, 0.01, 0.1, 0.1])   # allow more position and velocity drift
+        # self.kalman_R = np.diag([0.3, 0.3])               # trust UWB measurements less
         self.kalman_F = np.eye(4)
         self.kalman_H = np.zeros((2, 4))
         self.kalman_H[0, 0] = 1
