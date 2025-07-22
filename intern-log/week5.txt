@@ -9,3 +9,7 @@
  - not sure about avoiding obstacles yet
  - need to figure out how to test obstacle avoidance while tracking (given fixed testbed)
 
+
+## July 22
+# Plan
+ - 

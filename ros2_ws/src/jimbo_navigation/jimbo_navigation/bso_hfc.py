@@ -18,6 +18,7 @@ from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
 import tf2_geometry_msgs
 import time
 import math
+from astar_planner import AStarPlanner
 
 class BSOHFCController(Node):
     def __init__(self):
@@ -45,6 +46,9 @@ class BSOHFCController(Node):
         self.target = None
         self.laser = None
 
+        self.occ_grid = None
+        self.grid_res = None
+
         self.distance_to_target = None
 
         self.tf_buffer = Buffer()
@@ -60,8 +64,10 @@ class BSOHFCController(Node):
 
         self.spline = None
         self.traj_index = 1
-        self.control_timer = self.create_timer(0.05, self.control_loop)
+        # self.control_timer = self.create_timer(0.05, self.control_loop)
         self.optimize_timer = self.create_timer(0.5, self.optimize_path)
+
+        self.astar = AStarPlanner(self.occ_grid, self.grid_res, self.pose[:2])
     
     def tracking_callback(self, msg):
         # if msg.data == True:
@@ -113,7 +119,17 @@ class BSOHFCController(Node):
         #     self.get_logger().info("Skipping optimization for short distance. Using straight line.")
         #     return path
 
-        cps = np.linspace(start, goal, self.num_ctrl_points).T  # (2, N)
+        # straight initial path
+        # cps = np.linspace(start, goal, self.num_ctrl_points).T  # (2, N)
+
+        # A* initial path
+        path = self.astar.plan(start, goal)
+        if not path:
+            self.get_logger().warn(f"A* failed to find path")
+            return
+        path_np = np.array(path).T
+        cps = path_np[:, ::max(1, len(path_np[0]) // self.num_ctrl_points)]
+
         fixed_start = cps[:, 0]
         fixed_end = cps[:, -1]
         initial_vars = cps[:, 1:-1].flatten()
@@ -201,7 +217,7 @@ class BSOHFCController(Node):
         ))
 
         traj = self.eval_bspline(opt_ctrl_pts, self.num_spline_points)
-        self.publish_spline_path(traj)
+        self.publish_spline_path(path)
         self.spline = traj  # Save the result
         self.traj_index = 1
 
