@@ -11,5 +11,11 @@
 
 
 ## July 22
+ - wrote A* planner node to compute obstacle-free path
+ - integrated with b-spline controller to optimize initial A* path
+
+
+## July 23
 # Plan
- - 
+ - simulate on gazebo. test algorithm with real-time obstacle avoidance (actual lidar is fixed to testbed)
+ - simulate following a person (fake uwb data)
