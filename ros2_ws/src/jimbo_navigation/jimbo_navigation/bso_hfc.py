@@ -19,6 +19,7 @@ import tf2_geometry_msgs
 import time
 import math
 from jimbo_navigation.astar_planner import AStarPlanner
+from scipy.ndimage import distance_transform_edt
 
 class BSOHFCController(Node):
     def __init__(self):
@@ -29,8 +30,8 @@ class BSOHFCController(Node):
         self.declare_parameter('v_max', 0.03)
         self.declare_parameter('a_max', 0.1)
         self.declare_parameter('target_distance_threshold', 0.2)
-        self.declare_parameter('num_ctrl_points', 4)
-        self.declare_parameter('num_spline_points', 10)
+        self.declare_parameter('num_ctrl_points', 5)
+        self.declare_parameter('num_spline_points', 15)
 
         self.robot_radius = self.get_parameter('robot_radius').value
         self.dthr = self.get_parameter('dthr').value
@@ -40,7 +41,8 @@ class BSOHFCController(Node):
         self.num_ctrl_points = self.get_parameter('num_ctrl_points').value
         self.num_spline_points = self.get_parameter('num_spline_points').value
 
-        self.track = True
+        self.target_locked = True
+        self.path_ready = False
 
         self.pose = None
         self.target = None
@@ -49,6 +51,7 @@ class BSOHFCController(Node):
         self.occ_grid = None
         self.grid_res = None
         self.grid_origin = None
+        self.edt = None
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -57,22 +60,22 @@ class BSOHFCController(Node):
         self.sub_target = self.create_subscription(PointStamped, '/uwb_filtered_position', self.uwb_callback, 10)
         qos = QoSProfile(depth=10, durability=DurabilityPolicy.VOLATILE, reliability=ReliabilityPolicy.BEST_EFFORT)
         self.sub_scan = self.create_subscription(LaserScan, '/scan', self.scan_callback, qos)
-        self.subscription3 = self.create_subscription(Bool, '/tracking', self.tracking_callback, 10)
+        self.create_subscription(Bool, '/capture_target', self.capture_callback, 10)
         self.sub_occupancy = self.create_subscription(OccupancyGrid, 'my_occupancy_grid', self.occupancy_callback, 10)
         self.pub_cmd = self.create_publisher(Twist, '/cmd_vel', 10)
         self.path_pub = self.create_publisher(Path, '/bso_hfc_path', 10)
 
         self.spline = None
         self.traj_index = 1
-        # self.control_timer = self.create_timer(0.05, self.control_loop)
+        self.control_timer = self.create_timer(0.05, self.control_loop)
         self.optimize_timer = self.create_timer(0.5, self.optimize_path)
 
         self.astar = AStarPlanner(self.occ_grid, self.grid_res, self.grid_origin)
     
-    def tracking_callback(self, msg):
-        # if msg.data == True:
-        #     self.get_logger().info(f"Recevied tracking command.")
-        #     self.track = True
+    def capture_callback(self, msg):
+        if msg.data:
+            self.target_locked = False  # clear lock to allow next UWB to register
+            self.path_ready = False
         return
 
     def odom_callback(self, msg):
@@ -82,7 +85,7 @@ class BSOHFCController(Node):
         self.pose = np.array([pos.x, pos.y, yaw])
 
     def uwb_callback(self, msg):
-        if self.track:
+        if not self.target_locked:
             pose = PoseStamped()
             pose.header.frame_id = msg.header.frame_id
             # self.get_logger().info(f"Transforming from {pose.header.frame_id} to odom")
@@ -91,7 +94,7 @@ class BSOHFCController(Node):
             pose.pose.orientation.w = 1.0
             odom_pose = self.tf_buffer.transform(pose, 'odom', timeout=rclpy.duration.Duration(seconds=1.0))
             self.target = np.array([odom_pose.pose.position.x, odom_pose.pose.position.y])
-            # self.track = False
+            self.target_locked = True
 
     def scan_callback(self, msg):
         self.laser = msg
@@ -103,11 +106,17 @@ class BSOHFCController(Node):
         self.occ_grid = data
         self.grid_res = msg.info.resolution
         self.grid_origin = (msg.info.origin.position.x, msg.info.origin.position.y)
+        self.edt = self.compute_edt(self.occ_grid, self.grid_res)
         self.astar.update_grid(data, self.grid_res, self.grid_origin)
 
     def optimize_path(self):
         if self.pose is None or self.target is None or self.laser is None or self.occ_grid is None:
             return
+
+        if self.path_ready:
+            return
+        
+        self.path_ready = True
 
         start = self.pose[:2]
         goal = self.target
@@ -236,18 +245,21 @@ class BSOHFCController(Node):
     def control_loop(self):
         if self.spline is None or self.pose is None:
             return
-        # if self.traj_index >= self.spline.shape[1]:
-        #     self.stop()
-        #     return
+        if self.traj_index >= self.spline.shape[1]:
+            self.stop()
+            self.spline = None
+            return
         if np.linalg.norm(self.pose[:2] - self.target) < self.target_distance_threshold:
             self.stop()
             return
 
-        index = min(self.traj_index + 3, self.spline.shape[1] - 1)
+        # index = min(self.traj_index + 3, self.spline.shape[1] - 1)
+        index = self.traj_index
         point_to_follow = self.spline[:, index]
         if np.linalg.norm(self.pose[:2] - point_to_follow) < 0.1:
             self.traj_index += 1
-        point_to_follow = self.spline[:, self.traj_index]
+            index = self.traj_index
+        point_to_follow = self.spline[:, index]
         self.follow_point(point_to_follow)
 
     def eval_bspline(self, ctrl_pts, num_points):
@@ -261,22 +273,35 @@ class BSOHFCController(Node):
         return np.vstack((spline_x, spline_y))
 
     def collision_cost(self, pt):
-        angle_min = self.laser.angle_min
-        angle_inc = self.laser.angle_increment
-        ranges = np.array(self.laser.ranges)
+        # pt: (x, y) in world coordinates
+        # angle_min = self.laser.angle_min
+        # angle_inc = self.laser.angle_increment
+        # ranges = np.array(self.laser.ranges)
 
-        dx = pt[0] - self.pose[0]
-        dy = pt[1] - self.pose[1]
-        r = np.hypot(dx, dy)
-        a = np.arctan2(dy, dx) - self.pose[2]
-        a = np.arctan2(np.sin(a), np.cos(a))
-        idx = int((a - angle_min) / angle_inc)
-        if 0 <= idx < len(ranges):
-            dist = ranges[idx]
-            margin = 0.2  # safe margin
-            cost = np.exp(-5 * (dist - self.dthr + margin))  # smooth decay
-            return cost if dist < self.dthr + margin else 0.0
-        return 0.0
+        # dx = pt[0] - self.pose[0]
+        # dy = pt[1] - self.pose[1]
+        # r = np.hypot(dx, dy)
+        # a = np.arctan2(dy, dx) - self.pose[2]
+        # a = np.arctan2(np.sin(a), np.cos(a))
+        # idx = int((a - angle_min) / angle_inc)
+        # if 0 <= idx < len(ranges):
+        #     dist = ranges[idx]
+        #     margin = 0.2  # safe margin
+        #     cost = np.exp(-5 * (dist - self.dthr + margin))  # smooth decay
+        #     return cost if dist < self.dthr + margin else 0.0
+        # return 0.0
+
+        gx = int((pt[0] - self.grid_origin[0]) / self.grid_res)
+        gy = int((pt[1] - self.grid_origin[1]) / self.grid_res)
+
+        if 0 <= gx < self.edt.shape[1] and 0 <= gy < self.edt.shape[0]:
+            dist = self.edt[gy, gx]
+            if dist < self.dthr:
+                return np.exp(-5 * (dist - self.dthr))  # Higher cost closer to obstacle
+            else:
+                return 0.0  # Safe
+        else:
+            return 1e3  # Outside map → heavy penalty
 
     def follow_point(self, pt):
         dx = pt[0] - self.pose[0]
@@ -305,6 +330,13 @@ class BSOHFCController(Node):
 
         self.pub_cmd.publish(cmd)
 
+    def compute_edt(self, grid, resolution):
+        # 1 = obstacle, 0 = free → invert to compute distance to obstacles
+        binary_obstacles = (grid == 1)
+        free_space = np.logical_not(binary_obstacles)
+        edt_cells = distance_transform_edt(free_space)  # ~binary_obstacles: where free
+        edt_meters = edt_cells * resolution  # convert cells → meters
+        return edt_meters
 
     def stop(self):
         self.pub_cmd.publish(Twist())

@@ -10,6 +10,7 @@ from launch.conditions import IfCondition
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch.actions import ExecuteProcess
+import subprocess
 
 def generate_launch_description():
     # Get the package directory
@@ -145,10 +146,10 @@ def generate_launch_description():
         package='jimbo_navigation',
         executable='occ_grid',
         name='occ_grid',
-        parameters=[{
-            'grid_size': 10.0,
-            'resolution': 0.05
-        }],
+        # parameters=[{
+        #     'grid_size': 10.0,
+        #     'resolution': 0.1
+        # }],
         output='screen'
     )
 
@@ -210,23 +211,40 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('enable_rviz'))
     )
 
-    gazebo_launch = ExecuteProcess(
-        cmd=[
-            'ign', 'gazebo', 'empty.sdf'
-        ],
-        output='screen'
-    )
+    # gazebo_launch = ExecuteProcess(
+    #     cmd=[
+    #         'ign', 'gazebo', '/home/jimbo/jimbo-guide-robot/ros2_ws/src/jimbo_navigation/worlds/world.sdf'
+    #     ],
+    #     output='screen'
+    # )
+    gazebo_server = ExecuteProcess(
+        cmd=['gzserver', '-s', 'libgazebo_ros_init.so',
+             '-s', 'libgazebo_ros_factory.so', '/home/jimbo/jimbo-guide-robot/ros2_ws/src/jimbo_navigation/worlds/empty.world'],
+        output='screen')
+    
+    gazebo_client = ExecuteProcess(
+        cmd=['gzclient'],
+        output='screen')
 
-    spawn_node = ExecuteProcess(
-        cmd=[
-            'ign', 'service', '-s', '/world/empty/create',
-            '--reqtype', 'ignition.msgs.EntityFactory',
-            '--reptype', 'ignition.msgs.Boolean',
-            '--timeout', '1000',
-            '--req', 'sdf_filename: "/home/jimbo/jimbo-guide-robot/ros2_ws/src/jimbo_navigation/urdf/jimbo_robot_converted.sdf", name: "urdf_model"'
-        ],
-        output='screen'
+    urdf_path = '/home/jimbo/jimbo-guide-robot/ros2_ws/src/jimbo_navigation/urdf/jimbo_robot.urdf'
+    sdf_path = '/home/jimbo/jimbo-guide-robot/ros2_ws/src/jimbo_navigation/urdf/jimbo_robot_converted.sdf'
+    result = subprocess.run(
+        ['ign', 'sdf', '-p', urdf_path],
+        capture_output=True,
+        text=True
     )
+    with open(sdf_path, 'w') as sdf_file:
+        sdf_file.write(result.stdout)
+
+    spawn_node = Node(
+        package='gazebo_ros',
+        executable='spawn_entity.py',
+        output='screen',
+        arguments=[
+            '-entity', 'robot',
+            '-file', '/home/jimbo/jimbo-guide-robot/ros2_ws/src/jimbo_navigation/urdf/jimbo_robot.urdf',
+            '-x', '0', '-y', '0', '-z', '0',
+            '-R', '0', '-P', '0', '-Y', '0'])
 
     delayed_spawn = TimerAction(
         period=5.0,  # seconds
@@ -247,11 +265,12 @@ def generate_launch_description():
         robot_description_launch,
         rviz_node,
         uwb_launch,
-        # lidar_launch,
-        # occupancy_node,
-        # bso_hfc_node,
-        gazebo_launch,
-        delayed_spawn,
+        lidar_launch,
+        occupancy_node,
+        bso_hfc_node,
+        # gazebo_server,
+        # gazebo_client,
+        # delayed_spawn,
         # realsense_launch,
         # nav_launch
         # full_nav_launch

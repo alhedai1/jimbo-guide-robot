@@ -44,26 +44,46 @@ class ScanToOccupancyGrid(Node):
 
     def scan_callback(self, msg: LaserScan):
         self.grid.fill(0)  # clear grid
-        angle = msg.angle_min
-        for r in msg.ranges:
-            if msg.range_min < r < msg.range_max:
-                p = PointStamped()
-                p.header = msg.header
-                p.point.x = r * math.cos(angle)
-                p.point.y = r * math.sin(angle)
-                p.point.z = 0.0
-                try:
-                    transformed = self.tf_buffer.transform(p, 'base_footprint', timeout=Duration(seconds=0.1))
-                    x = transformed.point.x
-                    y = transformed.point.y
+
+        try:
+            trans = self.tf_buffer.lookup_transform('base_footprint', msg.header.frame_id, rclpy.time.Time(), timeout=Duration(seconds=0.1))
+            angle = msg.angle_min
+            for r in msg.ranges:
+                if msg.range_min < r < msg.range_max:
+                    x_local = r * math.cos(angle)
+                    y_local = r * math.sin(angle)
+                    # Apply transform manually
+                    x = trans.transform.translation.x + x_local * math.cos(tf_transformations.euler_from_quaternion([
+                        trans.transform.rotation.x,
+                        trans.transform.rotation.y,
+                        trans.transform.rotation.z,
+                        trans.transform.rotation.w
+                    ])[2]) - y_local * math.sin(tf_transformations.euler_from_quaternion([
+                        trans.transform.rotation.x,
+                        trans.transform.rotation.y,
+                        trans.transform.rotation.z,
+                        trans.transform.rotation.w
+                    ])[2])
+                    y = trans.transform.translation.y + x_local * math.sin(tf_transformations.euler_from_quaternion([
+                        trans.transform.rotation.x,
+                        trans.transform.rotation.y,
+                        trans.transform.rotation.z,
+                        trans.transform.rotation.w
+                    ])[2]) + y_local * math.cos(tf_transformations.euler_from_quaternion([
+                        trans.transform.rotation.x,
+                        trans.transform.rotation.y,
+                        trans.transform.rotation.z,
+                        trans.transform.rotation.w
+                    ])[2])
+
                     gx = int((x + self.grid_size/2) / self.resolution)
                     gy = int((y + self.grid_size/2) / self.resolution)
                     if 0 <= gx < self.grid_dim and 0 <= gy < self.grid_dim:
-                        self.grid[gy, gx] = 100  # occupied
-                except:
-                    self.get_logger().info("Error transforming.")
-                    continue
-            angle += msg.angle_increment
+                        self.grid[gy, gx] = 100
+                angle += msg.angle_increment
+        except Exception as e:
+            self.get_logger().warn(f"Transform error: {e}")
+            return
 
         self.occupancy_grid.data = self.grid.flatten().tolist()
         self.occupancy_grid.header.stamp = self.get_clock().now().to_msg()

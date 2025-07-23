@@ -8,6 +8,7 @@ import numpy as np
 from scipy.optimize import minimize
 from typing import Optional, Tuple
 from tf2_ros import TransformBroadcaster
+from collections import deque
 
 # configuring tags and anchor (nmt, nmi, nis) is done separately
 # tags - 4 nmt
@@ -72,7 +73,7 @@ class UWBInterfaceNode(Node):
                     self.get_logger().error(f"Failed to initialize UWB device {i}: {e}")
 
         self.distances = [0.0] * len(self.tags)
-        # self.dist_pub = self.create_publisher(Float32MultiArray, 'uwb_distances', 10)
+        self.dist_pub = self.create_publisher(Float32MultiArray, 'uwb_distances', 10)
         self.pos_pub = self.create_publisher(PointStamped, 'uwb_filtered_position', 10)
         self.timer = self.create_timer(0.1, self.request_sensor_data)  # 10Hz
 
@@ -84,10 +85,11 @@ class UWBInterfaceNode(Node):
         self.kalman_initialized = False
         self.kalman_state = np.zeros(4)  # [x, y, vx, vy]
         self.kalman_P = np.eye(4)
-        self.kalman_Q = np.eye(4) * 0.005   # Lower process noise
-        self.kalman_R = np.eye(2) * 0.2     # Higher measurement noise
-        # self.kalman_Q = np.diag([0.01, 0.01, 0.1, 0.1])   # allow more position and velocity drift
-        # self.kalman_R = np.diag([0.3, 0.3])               # trust UWB measurements less
+        # self.kalman_Q = np.eye(4) * 0.005   # Lower process noise
+        # self.kalman_R = np.eye(2) * 0.2     # Higher measurement noise
+        self.kalman_Q = np.diag([0.01, 0.01, 0.1, 0.1])   # Process noise: lower for position, higher for velocity
+        self.kalman_R = np.diag([0.5, 0.5])               # Measurement noise: higher to trust UWB less
+
         self.kalman_F = np.eye(4)
         self.kalman_H = np.zeros((2, 4))
         self.kalman_H[0, 0] = 1
@@ -95,6 +97,8 @@ class UWBInterfaceNode(Node):
         self.kalman_last_time = self.get_clock().now()
 
         self.tf_broadcaster = TransformBroadcaster(self)
+
+        self.position_buffer = deque(maxlen=5)
 
     def request_sensor_data(self):
         # Read from all serial ports with non-blocking approach
@@ -129,13 +133,30 @@ class UWBInterfaceNode(Node):
                     pass
         
         # Publish distances
-        # dist_msg = Float32MultiArray()
-        # dist_msg.data = self.distances
-        # self.dist_pub.publish(dist_msg)
+        dist_msg = Float32MultiArray()
+        dist_msg.data = self.distances
+        self.dist_pub.publish(dist_msg)
+
         
         # Estimate position
         pos = self.estimate_tag_position(tags, self.distances)
-        filtered_pos = self.kalman_update(np.array(pos))
+
+        # if self.user_position is not None:
+        #     dist = np.linalg.norm(np.array(pos) - np.array(self.user_position))
+        #     if dist > 0.5:  # Rejection threshold in meters (tune this)
+        #         self.get_logger().warn(f"Outlier rejected (jump = {dist:.2f} m)")
+        #         return  # Skip this cycle
+        
+        self.user_position = pos
+
+        # filtered_pos = self.kalman_update(np.array(pos))
+        
+        # Step 1: Kalman
+        kalman_pos = self.kalman_update(np.array(pos))
+        # Step 2: Moving Average
+        self.position_buffer.append(kalman_pos)
+        filtered_pos = np.mean(self.position_buffer, axis=0)
+        
         pos_msg = PointStamped()
         pos_msg.header.stamp = self.get_clock().now().to_msg()
         pos_msg.header.frame_id = 'base_footprint'
