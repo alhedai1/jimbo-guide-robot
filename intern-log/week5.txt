@@ -19,3 +19,9 @@
 # Plan
  - simulate on gazebo. test algorithm with real-time obstacle avoidance (actual lidar is fixed to testbed)
  - simulate following a person (fake uwb data)
+
+
+## July 24
+# Issues
+ - uwb connections often suddenly change, while running (eg: uwb_front_left changes from ttyACM5 to ttyACM0)
+ - measurement then freezes

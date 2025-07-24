@@ -11,6 +11,7 @@ import tf2_geometry_msgs
 import math
 from rclpy.duration import Duration
 from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
+from scipy.ndimage import binary_dilation
 
 class ScanToOccupancyGrid(Node):
     def __init__(self):
@@ -76,18 +77,24 @@ class ScanToOccupancyGrid(Node):
                         trans.transform.rotation.w
                     ])[2])
 
-                    gx = int((x + self.grid_size/2) / self.resolution)
-                    gy = int((y + self.grid_size/2) / self.resolution)
-                    if 0 <= gx < self.grid_dim and 0 <= gy < self.grid_dim:
-                        self.grid[gy, gx] = 100
+                    if np.linalg.norm([x, y]) > 1:
+                        gx = int((x + self.grid_size/2) / self.resolution)
+                        gy = int((y + self.grid_size/2) / self.resolution)
+                        if 0 <= gx < self.grid_dim and 0 <= gy < self.grid_dim:
+                            self.grid[gy, gx] = 100
                 angle += msg.angle_increment
         except Exception as e:
             self.get_logger().warn(f"Transform error: {e}")
             return
+        
+        self.grid = self.inflate_obstacles(self.grid, int(0.05 / self.resolution)) * 100
 
         self.occupancy_grid.data = self.grid.flatten().tolist()
         self.occupancy_grid.header.stamp = self.get_clock().now().to_msg()
         self.pub.publish(self.occupancy_grid)
+
+    def inflate_obstacles(self, grid, radius_cells):
+        return binary_dilation(grid, iterations=radius_cells).astype(np.uint8)
 
 def main(args=None):
     rclpy.init(args=args)

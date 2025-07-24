@@ -22,6 +22,7 @@ setup(
     entry_points={
         'console_scripts': [
             'uwb_interface_node = uwb_interface.uwb_interface_node:main',
+            'uwb_interface_node_2 = uwb_interface.uwb_interface_node_2:main',
             'test_uwb = uwb_interface.test_uwb:main',
             'uwb_fake_publisher = uwb_interface.uwb_fake_publisher:main'
         ],

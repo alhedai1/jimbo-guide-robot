@@ -6,10 +6,10 @@
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, PointStamped, PoseStamped
+from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Pose
 from nav_msgs.msg import Odometry, Path, OccupancyGrid
 from sensor_msgs.msg import LaserScan
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Header
 from tf_transformations import euler_from_quaternion
 import numpy as np
 from scipy.optimize import minimize
@@ -20,18 +20,19 @@ import time
 import math
 from jimbo_navigation.astar_planner import AStarPlanner
 from scipy.ndimage import distance_transform_edt
+from scipy.ndimage import binary_dilation
 
 class BSOHFCController(Node):
     def __init__(self):
         super().__init__('bso_hfc_controller')
 
-        self.declare_parameter('robot_radius', 0.2)
-        self.declare_parameter('dthr', 0.4)  # obstacle clearance threshold
+        self.declare_parameter('robot_radius', 0.5)
+        self.declare_parameter('dthr', 0.5)  # obstacle clearance threshold
         self.declare_parameter('v_max', 0.03)
         self.declare_parameter('a_max', 0.1)
         self.declare_parameter('target_distance_threshold', 0.2)
         self.declare_parameter('num_ctrl_points', 5)
-        self.declare_parameter('num_spline_points', 15)
+        self.declare_parameter('num_spline_points', 20)
 
         self.robot_radius = self.get_parameter('robot_radius').value
         self.dthr = self.get_parameter('dthr').value
@@ -44,8 +45,10 @@ class BSOHFCController(Node):
         self.target_locked = True
         self.path_ready = False
 
-        self.pose = None
-        self.target = None
+        # self.pose = None
+        # self.target = None
+        self.pose = np.array([0, 0, 0])
+        self.target = np.array([3, -1])
         self.laser = None
 
         self.occ_grid = None
@@ -64,10 +67,12 @@ class BSOHFCController(Node):
         self.sub_occupancy = self.create_subscription(OccupancyGrid, 'my_occupancy_grid', self.occupancy_callback, 10)
         self.pub_cmd = self.create_publisher(Twist, '/cmd_vel', 10)
         self.path_pub = self.create_publisher(Path, '/bso_hfc_path', 10)
+        self.astar_path_pub = self.create_publisher(Path, '/astar_path', 10)
+        self.edt_pub = self.create_publisher(OccupancyGrid, "/edt_grid", 10)
 
         self.spline = None
         self.traj_index = 1
-        self.control_timer = self.create_timer(0.05, self.control_loop)
+        # self.control_timer = self.create_timer(0.05, self.control_loop)
         self.optimize_timer = self.create_timer(0.5, self.optimize_path)
 
         self.astar = AStarPlanner(self.occ_grid, self.grid_res, self.grid_origin)
@@ -85,16 +90,16 @@ class BSOHFCController(Node):
         self.pose = np.array([pos.x, pos.y, yaw])
 
     def uwb_callback(self, msg):
-        if not self.target_locked:
-            pose = PoseStamped()
-            pose.header.frame_id = msg.header.frame_id
-            # self.get_logger().info(f"Transforming from {pose.header.frame_id} to odom")
-            pose.header.stamp = rclpy.time.Time().to_msg()
-            pose.pose.position = msg.point
-            pose.pose.orientation.w = 1.0
-            odom_pose = self.tf_buffer.transform(pose, 'odom', timeout=rclpy.duration.Duration(seconds=1.0))
-            self.target = np.array([odom_pose.pose.position.x, odom_pose.pose.position.y])
-            self.target_locked = True
+        # if not self.target_locked:
+        pose = PoseStamped()
+        pose.header.frame_id = msg.header.frame_id
+        # self.get_logger().info(f"Transforming from {pose.header.frame_id} to odom")
+        pose.header.stamp = rclpy.time.Time().to_msg()
+        pose.pose.position = msg.point
+        pose.pose.orientation.w = 1.0
+        odom_pose = self.tf_buffer.transform(pose, 'odom', timeout=rclpy.duration.Duration(seconds=1.0))
+        self.target = np.array([odom_pose.pose.position.x, odom_pose.pose.position.y])
+        # self.target_locked = True
 
     def scan_callback(self, msg):
         self.laser = msg
@@ -107,16 +112,17 @@ class BSOHFCController(Node):
         self.grid_res = msg.info.resolution
         self.grid_origin = (msg.info.origin.position.x, msg.info.origin.position.y)
         self.edt = self.compute_edt(self.occ_grid, self.grid_res)
-        self.astar.update_grid(data, self.grid_res, self.grid_origin)
+        self.publish_edt_as_grid(self.edt, self.grid_res, self.grid_origin)
+        # inflated_grid = self.inflate_obstacles(self.occ_grid, int(0.2 / self.grid_res))
+        self.astar.update_grid(self.occ_grid, self.grid_res, self.grid_origin)
 
     def optimize_path(self):
         if self.pose is None or self.target is None or self.laser is None or self.occ_grid is None:
             return
 
-        if self.path_ready:
-            return
-        
-        self.path_ready = True
+        # if self.path_ready:
+        #     return
+        # self.path_ready = True
 
         start = self.pose[:2]
         goal = self.target
@@ -129,27 +135,19 @@ class BSOHFCController(Node):
             self.stop()
             return
 
-        # if np.linalg.norm(goal - start) < 0.5:
-        #     # Simple linear path fallback
-        #     control = [start + (goal - start) * i / (self.num_points + 1) for i in range(1, self.num_points + 1)]
-        #     path = [start] + control + [goal]
-        #     self.get_logger().info("Skipping optimization for short distance. Using straight line.")
-        #     return path
-
-        # straight initial path
-        # cps = np.linspace(start, goal, self.num_ctrl_points).T  # (2, N)
-
         # A* initial path
         path = self.astar.plan(start, goal)
         if not path:
             self.get_logger().warn(f"A* failed to find path")
             return
         path_np = np.array(path).T
+        # self.num_ctrl_points = max(5, len(path_np[0]) // 2)
         # self.get_logger().info(f"Length of path: {len(path)}, Shape of Path: {path_np.shape}\nPath: {path}")
-        # self.publish_spline_path(path_np)
+        self.publish_spline_path(path_np, True)
         # self.get_logger().info(f"Published A* path")
         
         cps = path_np[:, ::max(1, len(path_np[0]) // self.num_ctrl_points)]
+        # cps = path_np
 
         fixed_start = cps[:, 0]
         fixed_end = cps[:, -1]
@@ -203,6 +201,7 @@ class BSOHFCController(Node):
                 print("jerk shape:", jerk.shape)
                 return 1e6  # Large penalty
 
+            self.get_logger().info(f"Cost: {cost}")
             return cost
 
         # result = minimize(compute_cost, initial_vars, method='L-BFGS-B')
@@ -215,7 +214,7 @@ class BSOHFCController(Node):
                 'maxiter': 15,
                 'disp': False,
                 'gtol': 1e-3,  # allow slightly larger gradients
-                "ftol": 1e-6,        # Early stopping
+                "ftol": 1e-6,  # Early stopping
                 'maxls': 40,   # increase line search steps
             }
         )
@@ -238,9 +237,98 @@ class BSOHFCController(Node):
         ))
 
         traj = self.eval_bspline(opt_ctrl_pts, self.num_spline_points)
-        self.publish_spline_path(traj)
+        self.publish_spline_path(traj, False)
         self.spline = traj  # Save the result
         self.traj_index = 1
+
+    def eval_bspline(self, ctrl_pts, num_points):
+        from scipy.interpolate import BSpline
+        n = ctrl_pts.shape[1]
+        degree = 3
+        knots = np.concatenate(([0]*degree, np.linspace(0, 1, n - degree + 1), [1]*degree))
+        t_vals = np.linspace(0, 1, num_points)
+        spline_x = BSpline(knots, ctrl_pts[0], degree)(t_vals)
+        spline_y = BSpline(knots, ctrl_pts[1], degree)(t_vals)
+        return np.vstack((spline_x, spline_y))
+
+    def collision_cost(self, pt):
+        # pt: (x, y) in world coordinates
+        angle_min = self.laser.angle_min
+        angle_inc = self.laser.angle_increment
+        ranges = np.array(self.laser.ranges)
+
+        dx = pt[0] - self.pose[0]
+        dy = pt[1] - self.pose[1]
+        r = np.hypot(dx, dy)
+        a = np.arctan2(dy, dx) - self.pose[2]
+        a = np.arctan2(np.sin(a), np.cos(a))
+        idx = int((a - angle_min) / angle_inc)
+        if 0 <= idx < len(ranges):
+            dist = ranges[idx]
+            margin = 1.5  # safe margin
+            cost = np.exp(5 * (dist - self.dthr + margin))  # smooth decay
+            return cost if dist < self.dthr + margin else 0.0
+        return 0.0
+
+        gx = int((pt[0] - self.grid_origin[0]) / self.grid_res)
+        gy = int((pt[1] - self.grid_origin[1]) / self.grid_res)
+
+        if 0 <= gx < self.edt.shape[1] and 0 <= gy < self.edt.shape[0]:
+            dist = self.edt[gy, gx]
+            # dist = max(1e-2, dist)
+            if dist < (self.dthr + self.robot_radius):
+                # return np.exp(-5 * (dist - self.dthr))  # Higher cost closer to obstacle
+                return np.exp(5 * ((self.dthr + self.robot_radius) - dist)) 
+                # return (self.dthr - dist)**2 # Try quadratic cost
+            else:
+                return 0.0  # Safe
+        else:
+            return 1e3  # Outside map → heavy penalty
+
+    def compute_edt(self, grid, resolution):
+        """
+        Converts an occupancy grid (with values 0–100 and -1) into an EDT (in meters).
+        grid: 2D numpy array
+        resolution: meters per cell
+        """
+        # Handle unknowns (-1) as obstacles or customize depending on use
+        grid = grid.copy()
+        grid[grid == -1] = 100  # Treat unknowns as obstacles
+
+        # Define binary obstacle map: 1 = obstacle, 0 = free
+        binary_obstacles = grid >= 50  # or >=100 for strict, >=50 more lenient
+
+        # Invert: free space = True, obstacles = False
+        free_space = np.logical_not(binary_obstacles)
+
+        # Compute EDT
+        edt_cells = distance_transform_edt(free_space)
+
+        # Convert cell distances to meters
+        edt_meters = edt_cells * resolution
+        return edt_meters
+
+    def inflate_obstacles(self, grid, radius_cells):
+        return binary_dilation(grid, iterations=radius_cells).astype(np.uint8)
+    
+    def publish_spline_path(self, traj, astar):
+        path_msg = Path()
+        path_msg.header.stamp = self.get_clock().now().to_msg()
+        path_msg.header.frame_id = 'odom'  # Adjust if you're in another frame
+
+        for i in range(traj.shape[1]):
+            pose = PoseStamped()
+            pose.header = path_msg.header
+            pose.pose.position.x = traj[0, i]
+            pose.pose.position.y = traj[1, i]
+            pose.pose.position.z = 0.0
+            pose.pose.orientation.w = 1.0  # no rotation
+            path_msg.poses.append(pose)
+        if astar:
+            self.astar_path_pub.publish(path_msg)
+        else:
+            self.path_pub.publish(path_msg)
+
 
     def control_loop(self):
         if self.spline is None or self.pose is None:
@@ -261,47 +349,6 @@ class BSOHFCController(Node):
             index = self.traj_index
         point_to_follow = self.spline[:, index]
         self.follow_point(point_to_follow)
-
-    def eval_bspline(self, ctrl_pts, num_points):
-        from scipy.interpolate import BSpline
-        n = ctrl_pts.shape[1]
-        degree = 3
-        knots = np.concatenate(([0]*degree, np.linspace(0, 1, n - degree + 1), [1]*degree))
-        t_vals = np.linspace(0, 1, num_points)
-        spline_x = BSpline(knots, ctrl_pts[0], degree)(t_vals)
-        spline_y = BSpline(knots, ctrl_pts[1], degree)(t_vals)
-        return np.vstack((spline_x, spline_y))
-
-    def collision_cost(self, pt):
-        # pt: (x, y) in world coordinates
-        # angle_min = self.laser.angle_min
-        # angle_inc = self.laser.angle_increment
-        # ranges = np.array(self.laser.ranges)
-
-        # dx = pt[0] - self.pose[0]
-        # dy = pt[1] - self.pose[1]
-        # r = np.hypot(dx, dy)
-        # a = np.arctan2(dy, dx) - self.pose[2]
-        # a = np.arctan2(np.sin(a), np.cos(a))
-        # idx = int((a - angle_min) / angle_inc)
-        # if 0 <= idx < len(ranges):
-        #     dist = ranges[idx]
-        #     margin = 0.2  # safe margin
-        #     cost = np.exp(-5 * (dist - self.dthr + margin))  # smooth decay
-        #     return cost if dist < self.dthr + margin else 0.0
-        # return 0.0
-
-        gx = int((pt[0] - self.grid_origin[0]) / self.grid_res)
-        gy = int((pt[1] - self.grid_origin[1]) / self.grid_res)
-
-        if 0 <= gx < self.edt.shape[1] and 0 <= gy < self.edt.shape[0]:
-            dist = self.edt[gy, gx]
-            if dist < self.dthr:
-                return np.exp(-5 * (dist - self.dthr))  # Higher cost closer to obstacle
-            else:
-                return 0.0  # Safe
-        else:
-            return 1e3  # Outside map → heavy penalty
 
     def follow_point(self, pt):
         dx = pt[0] - self.pose[0]
@@ -329,35 +376,34 @@ class BSOHFCController(Node):
         self.get_logger().info("Computing cmd command")
 
         self.pub_cmd.publish(cmd)
+    
+    def publish_edt_as_grid(self, edt_array, resolution, origin, frame_id="base_footprint"):
+        # Normalize EDT to [0, 100] (RViz expects this)
+        max_dist = np.max(edt_array)
+        if max_dist == 0:
+            norm = np.zeros_like(edt_array, dtype=np.int8)
+        else:
+            norm = (1.0 - edt_array / max_dist) * 100  # Inverted: close = dark
+            norm = np.clip(norm, 0, 100).astype(np.int8)
 
-    def compute_edt(self, grid, resolution):
-        # 1 = obstacle, 0 = free → invert to compute distance to obstacles
-        binary_obstacles = (grid == 1)
-        free_space = np.logical_not(binary_obstacles)
-        edt_cells = distance_transform_edt(free_space)  # ~binary_obstacles: where free
-        edt_meters = edt_cells * resolution  # convert cells → meters
-        return edt_meters
+        # Convert to OccupancyGrid message
+        msg = OccupancyGrid()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = frame_id
+
+        msg.info.resolution = resolution
+        msg.info.width = edt_array.shape[1]
+        msg.info.height = edt_array.shape[0]
+        msg.info.origin.position.x = origin[0]
+        msg.info.origin.position.y = origin[1]
+        msg.info.origin.position.z = 0.0
+        msg.info.origin.orientation.w = 1.0
+
+        msg.data = norm.flatten().tolist()  # Row-major
+        self.edt_pub.publish(msg)
 
     def stop(self):
         self.pub_cmd.publish(Twist())
-    
-    def publish_spline_path(self, traj):
-        path_msg = Path()
-        path_msg.header.stamp = self.get_clock().now().to_msg()
-        path_msg.header.frame_id = 'odom'  # Adjust if you're in another frame
-
-        for i in range(traj.shape[1]):
-            pose = PoseStamped()
-            pose.header = path_msg.header
-            pose.pose.position.x = traj[0, i]
-            pose.pose.position.y = traj[1, i]
-            pose.pose.position.z = 0.0
-            pose.pose.orientation.w = 1.0  # no rotation
-            path_msg.poses.append(pose)
-
-        self.path_pub.publish(path_msg)
-
-
 
 
 def main(args=None):

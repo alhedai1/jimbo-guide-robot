@@ -11,20 +11,17 @@ from tf2_ros import TransformBroadcaster
 from collections import deque
 from statistics import mean, stdev
 
-# configuring tags and anchor (nmt, nmi, nis) is done separately
-# tags - 4 nmt
-# anchor - 1 nmi
-# network id - nis 1234 (both tags and anchor)
+# forward: +x, left: +y
 
 # tag positions:
 tags = [
-    (-0.30,  0.465),  # Front Left
-    ( 0.30,  0.465),  # Front Right
-    (-0.30, -0.465),  # Back Left
-    ( 0.30, -0.465),  # Back Right
+    (0.465,   0.3),  # Front Left
+    (0.465,  -0.3),  # Front Right
+    (-0.465,  0.3),  # Back Left
+    (-0.465, -0.3),  # Back Right
 ]
 
-class UWBInterfaceNode(Node):
+class UWBInterfaceNode2(Node):
     def __init__(self):
         super().__init__('uwb_interface_node')
         # Declare parameters for ports
@@ -78,28 +75,13 @@ class UWBInterfaceNode(Node):
         self.pos_pub = self.create_publisher(PointStamped, 'uwb_filtered_position', 10)
         self.timer = self.create_timer(0.1, self.request_sensor_data)  # 10Hz
 
-        # State variables
-        self.user_position: Optional[Tuple[float, float]] = None
-        self.user_heading: Optional[float] = 0.0  # Not used currently, assumed to be 0
-
-        # Kalman filter state for user position [x, y, vx, vy]
-        self.kalman_initialized = False
-        self.kalman_state = np.zeros(4)  # [x, y, vx, vy]
-        self.kalman_P = np.eye(4)
-        # self.kalman_Q = np.eye(4) * 0.005   # Lower process noise
-        # self.kalman_R = np.eye(2) * 0.2     # Higher measurement noise
-        self.kalman_Q = np.diag([0.01, 0.01, 0.1, 0.1])   # Process noise: lower for position, higher for velocity
-        self.kalman_R = np.diag([0.5, 0.5])               # Measurement noise: higher to trust UWB less
-
-        self.kalman_F = np.eye(4)
-        self.kalman_H = np.zeros((2, 4))
-        self.kalman_H[0, 0] = 1
-        self.kalman_H[1, 1] = 1
-        self.kalman_last_time = self.get_clock().now()
-
         self.tf_broadcaster = TransformBroadcaster(self)
 
-        self.position_buffer = deque(maxlen=5)
+        # Kalman Filter init
+        self.kalman_state = np.array([0.0, 0.0])  # initial position
+        self.kalman_cov = np.eye(2) * 0.1         # initial covariance
+        self.kalman_process_noise = np.eye(2) * 0.05
+        self.kalman_measurement_noise = np.eye(2) * 0.2
 
         self.pos_history = deque(maxlen=100)  # 10 seconds of data at 10Hz
         self.stats_timer = self.create_timer(1.0, self.compute_position_stats)
@@ -137,49 +119,21 @@ class UWBInterfaceNode(Node):
         dist_msg = Float32MultiArray()
         dist_msg.data = self.distances
         self.dist_pub.publish(dist_msg)
-
-        
+    
         # Estimate position
-        pos = self.estimate_tag_position(tags, self.distances)
+        pos = self.compute_position(self.distances)
+        if pos is not None:
+            x, y = self.apply_kalman_filter(*pos)
+            self.pos_history.append((x, y))
 
-        # if self.user_position is not None:
-        #     dist = np.linalg.norm(np.array(pos) - np.array(self.user_position))
-        #     if dist > 0.5:  # Rejection threshold in meters (tune this)
-        #         self.get_logger().warn(f"Outlier rejected (jump = {dist:.2f} m)")
-        #         return  # Skip this cycle
-        
-        self.user_position = pos
-
-        # filtered_pos = self.kalman_update(np.array(pos))
-        
-        # Step 1: Kalman
-        kalman_pos = self.kalman_update(np.array(pos))
-        # Step 2: Moving Average
-        self.position_buffer.append(kalman_pos)
-        filtered_pos = np.mean(self.position_buffer, axis=0)
-        
-        pos_msg = PointStamped()
-        pos_msg.header.stamp = self.get_clock().now().to_msg()
-        pos_msg.header.frame_id = 'base_footprint'
-        pos_msg.point.x = filtered_pos[1]
-        pos_msg.point.y = -filtered_pos[0] 
-        self.pos_history.append((pos_msg.point.x, pos_msg.point.y))
-        pos_msg.point.z = 0.0  # Assuming 2D position
-        self.pos_pub.publish(pos_msg)
-
-        # Publish TF of person position relative to robot
-        transform = TransformStamped()
-        transform.header.stamp = self.get_clock().now().to_msg()
-        transform.header.frame_id = 'base_footprint'
-        transform.child_frame_id = 'uwb_person'
-        transform.transform.translation.x = pos_msg.point.x
-        transform.transform.translation.y = pos_msg.point.y
-        transform.transform.translation.z = 0.0
-        transform.transform.rotation.w = 1.0  # No rotation
-        transform.transform.rotation.x = 0.0
-        transform.transform.rotation.y = 0.0
-        transform.transform.rotation.z = 0.0
-        self.tf_broadcaster.sendTransform(transform)
+            # Publish as PointStamped
+            point = PointStamped()
+            point.header.stamp = self.get_clock().now().to_msg()
+            point.header.frame_id = 'base_footprint'  # or whatever your robot's frame is
+            point.point.x = float(x)
+            point.point.y = float(y)
+            point.point.z = 0.0
+            self.pos_pub.publish(point)
 
     def parse_response(self, line, tag_index):
         # for line in response.splitlines():
@@ -193,53 +147,37 @@ class UWBInterfaceNode(Node):
                 # qf = int(parts[2].split(':')[1].strip())
             except Exception as e:
                 self.get_logger().error(f"Serial error on tag {tag_index}: {e}")
-    
-    def estimate_tag_position(self, tags, distances):
-        # Check for valid distances
-        # if any(d <= 0 or d > 10 for d in distances):  # 10m max reasonable distance
-        #     return [0.0, 0.0]  # Return center if invalid
-        
-        def loss(p):
-            x, y = p
-            return sum((np.linalg.norm(np.array([x, y]) - np.array(tag)) - d) ** 2 for tag, d in zip(tags, distances))
 
-        initial_guess = [0.0, 0.0]
-        result = minimize(loss, initial_guess, method='L-BFGS-B', 
-                         bounds=[(-5, 5), (-5, 5)])  # Reasonable bounds
+    def compute_position(self, distances) -> Optional[Tuple[float, float]]:
+        if any(d <= 0 for d in distances):
+            return None  # Invalid readings
         
+        def error_fn(p):
+            return sum((np.linalg.norm(p - np.array(tag)) - d) ** 2
+                       for tag, d in zip(tags, distances))
+
+        # Start guess at center
+        result = minimize(error_fn, x0=np.array([0.0, 0.0]), method='L-BFGS-B')
         if result.success:
-            return result.x
-        # else:
-        #     return [0.0, 0.0]  # Return center if optimization fails
+            return tuple(result.x)
+        else:
+            self.get_logger().warn("Minimization failed")
+            return None
+    
+    def apply_kalman_filter(self, x, y):
+        z = np.array([x, y])
+        # Prediction step
+        pred_state = self.kalman_state
+        pred_cov = self.kalman_cov + self.kalman_process_noise
 
-    def kalman_update(self, z):
-        now = self.get_clock().now()
-        dt = (now - self.kalman_last_time).nanoseconds * 1e-9
-        if dt <= 0 or dt > 1.0:
-            dt = 0.1  # fallback for first call or large jumps
-        self.kalman_last_time = now
-
-        if not self.kalman_initialized:
-            self.kalman_state[:2] = z
-            self.kalman_initialized = True
-            return self.kalman_state[:2]
-
-        # Update F for dt
-        self.kalman_F[0, 2] = dt
-        self.kalman_F[1, 3] = dt
-
-        # Predict
-        self.kalman_state = self.kalman_F @ self.kalman_state
-        self.kalman_P = self.kalman_F @ self.kalman_P @ self.kalman_F.T + self.kalman_Q
+        # Kalman Gain
+        K = pred_cov @ np.linalg.inv(pred_cov + self.kalman_measurement_noise)
 
         # Update
-        y = z - self.kalman_H @ self.kalman_state
-        S = self.kalman_H @ self.kalman_P @ self.kalman_H.T + self.kalman_R
-        K = self.kalman_P @ self.kalman_H.T @ np.linalg.inv(S)
-        self.kalman_state = self.kalman_state + K @ y
-        self.kalman_P = (np.eye(4) - K @ self.kalman_H) @ self.kalman_P
+        self.kalman_state = pred_state + K @ (z - pred_state)
+        self.kalman_cov = (np.eye(2) - K) @ pred_cov
 
-        return self.kalman_state[:2]
+        return self.kalman_state
     
     def compute_position_stats(self):
         if len(self.pos_history) < 10:
@@ -264,7 +202,7 @@ class UWBInterfaceNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = UWBInterfaceNode()
+    node = UWBInterfaceNode2()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()

@@ -2,27 +2,27 @@
   <model name='jimbo_robot'>
     <link name='base_footprint'>
       <inertial>
-        <pose>0.003870967741935484 0 0.1154354838709677 0 0 0</pose>
+        <pose>0.01403225806451613 0 0.1154354838709677 0 0 0</pose>
         <mass>3.1000000000000001</mass>
         <inertia>
           <ixx>0.01287338709677421</ixx>
           <ixy>0</ixy>
-          <ixz>-0.00069677419354838722</ixz>
-          <iyy>0.02676693548387097</iyy>
+          <ixz>-0.002525806451612904</ixz>
+          <iyy>0.04368548387096776</iyy>
           <iyz>0</iyz>
-          <izz>0.033901548387096768</izz>
+          <izz>0.050820096774193552</izz>
         </inertia>
       </inertial>
       <collision name='base_footprint_fixed_joint_lump__base_link_collision'>
         <pose>0 0 0.1135 0 0 0</pose>
         <geometry>
           <box>
-            <size>0.3 0.2 0.1</size>
+            <size>0.93 0.6 0.1</size>
           </box>
         </geometry>
       </collision>
       <collision name='base_footprint_fixed_joint_lump__robot_lidar_link_collision_1'>
-        <pose>0.12 0 0.1735 -1.5708 0 0</pose>
+        <pose>0.435 0 0.1735 -1.5708 0 0</pose>
         <geometry>
           <cylinder>
             <length>0.02</length>
@@ -34,7 +34,7 @@
         <pose>0 0 0.1135 0 0 0</pose>
         <geometry>
           <box>
-            <size>0.3 0.2 0.1</size>
+            <size>0.93 0.6 0.1</size>
           </box>
         </geometry>
         <material>
@@ -43,7 +43,7 @@
         </material>
       </visual>
       <visual name='base_footprint_fixed_joint_lump__robot_lidar_link_visual_1'>
-        <pose>0.12 0 0.1735 0 0 0</pose>
+        <pose>0.435 0 0.1735 0 0 0</pose>
         <geometry>
           <cylinder>
             <length>0.02</length>
@@ -57,7 +57,7 @@
       </visual>
     </link>
     <joint name='left_wheel_joint' type='revolute'>
-      <pose relative_to='base_footprint'>0 0.12 0.0635 0 0 0</pose>
+      <pose relative_to='base_footprint'>0 0.32 0.0635 0 0 0</pose>
       <parent>base_footprint</parent>
       <child>left_wheel</child>
       <axis>
@@ -110,7 +110,7 @@
       </visual>
     </link>
     <joint name='right_wheel_joint' type='revolute'>
-      <pose relative_to='base_footprint'>0 -0.12 0.0635 0 0 0</pose>
+      <pose relative_to='base_footprint'>0 -0.32 0.0635 0 0 0</pose>
       <parent>base_footprint</parent>
       <child>right_wheel</child>
       <axis>
@@ -163,7 +163,7 @@
       </visual>
     </link>
     <frame name='lidar_joint' attached_to='base_link'>
-      <pose>0.12 0 0.06 0 -0 0</pose>
+      <pose>0.435 0 0.06 0 -0 0</pose>
     </frame>
     <frame name='robot_lidar_link' attached_to='lidar_joint'/>
     <frame name='robot_base_joint' attached_to='base_footprint'>
