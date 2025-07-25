@@ -19,20 +19,23 @@ import tf2_geometry_msgs
 import time
 import math
 from jimbo_navigation.astar_planner import AStarPlanner
+from jimbo_navigation.hybrid_astar import HybridAStarPlanner
 from scipy.ndimage import distance_transform_edt
 from scipy.ndimage import binary_dilation
+from typing import Tuple, List
+from scipy.ndimage import gaussian_filter1d
 
 class BSOHFCController(Node):
     def __init__(self):
         super().__init__('bso_hfc_controller')
 
-        self.declare_parameter('robot_radius', 0.5)
-        self.declare_parameter('dthr', 0.5)  # obstacle clearance threshold
+        self.declare_parameter('robot_radius', 0.3)
+        self.declare_parameter('dthr', 0.2)  # obstacle clearance threshold
         self.declare_parameter('v_max', 0.03)
         self.declare_parameter('a_max', 0.1)
         self.declare_parameter('target_distance_threshold', 0.2)
         self.declare_parameter('num_ctrl_points', 5)
-        self.declare_parameter('num_spline_points', 20)
+        self.declare_parameter('num_spline_points', 15) # try 50 spline points
 
         self.robot_radius = self.get_parameter('robot_radius').value
         self.dthr = self.get_parameter('dthr').value
@@ -45,10 +48,10 @@ class BSOHFCController(Node):
         self.target_locked = True
         self.path_ready = False
 
-        # self.pose = None
-        # self.target = None
-        self.pose = np.array([0, 0, 0])
-        self.target = np.array([3, -1])
+        self.pose = None
+        self.target = None
+        # self.pose = np.array([0.0, 0.0, 0.0])
+        # self.target = np.array([3.0, -1.0])
         self.laser = None
 
         self.occ_grid = None
@@ -64,24 +67,29 @@ class BSOHFCController(Node):
         qos = QoSProfile(depth=10, durability=DurabilityPolicy.VOLATILE, reliability=ReliabilityPolicy.BEST_EFFORT)
         self.sub_scan = self.create_subscription(LaserScan, '/scan', self.scan_callback, qos)
         self.create_subscription(Bool, '/capture_target', self.capture_callback, 10)
-        self.sub_occupancy = self.create_subscription(OccupancyGrid, 'my_occupancy_grid', self.occupancy_callback, 10)
+        self.sub_occupancy = self.create_subscription(OccupancyGrid, 'inflated_occupancy_grid', self.occupancy_callback, 10)
+        self.goal_sub = self.create_subscription(PoseStamped, 'goal_pose', self.goal_callback, 10)
         self.pub_cmd = self.create_publisher(Twist, '/cmd_vel', 10)
         self.path_pub = self.create_publisher(Path, '/bso_hfc_path', 10)
         self.astar_path_pub = self.create_publisher(Path, '/astar_path', 10)
-        self.edt_pub = self.create_publisher(OccupancyGrid, "/edt_grid", 10)
+        self.edt_pub = self.create_publisher(OccupancyGrid, '/edt_grid', 10)
 
         self.spline = None
         self.traj_index = 1
-        # self.control_timer = self.create_timer(0.05, self.control_loop)
+        self.control_timer = self.create_timer(0.05, self.control_loop)
         self.optimize_timer = self.create_timer(0.5, self.optimize_path)
 
-        self.astar = AStarPlanner(self.occ_grid, self.grid_res, self.grid_origin)
+        self.astar = HybridAStarPlanner(self.occ_grid, self.grid_res, self.grid_origin, self.get_logger())
+        
     
     def capture_callback(self, msg):
         if msg.data:
             self.target_locked = False  # clear lock to allow next UWB to register
             self.path_ready = False
         return
+
+    def goal_callback(self, msg: PoseStamped):
+        self.target = np.array([msg.pose.position.x, msg.pose.position.y])
 
     def odom_callback(self, msg):
         pos = msg.pose.pose.position
@@ -120,31 +128,38 @@ class BSOHFCController(Node):
         if self.pose is None or self.target is None or self.laser is None or self.occ_grid is None:
             return
 
-        # if self.path_ready:
-        #     return
-        # self.path_ready = True
+        if self.path_ready:
+            return
+        self.path_ready = True
 
         start = self.pose[:2]
         goal = self.target
         distance = np.linalg.norm(goal - start)
 
-        self.get_logger().info(f'start: {start}, goal: {goal}, distance: {distance}')
+        self.get_logger().info(f'start: {start}, goal: {goal}, distance: {distance:.3f}')
         # return
 
         if distance < self.target_distance_threshold:
+            self.get_logger().info(f"Distance < target_distance_threshold. Stopping...")
             self.stop()
             return
 
         # A* initial path
+        # self.get_logger().info(f"Starting to plan path...")
+        start_time = time.time()
         path = self.astar.plan(start, goal)
         if not path:
             self.get_logger().warn(f"A* failed to find path")
             return
+        elapsed = time.time() - start_time
+        self.get_logger().info(f"Time to plan Hybrid-A* path: {elapsed:.2f} seconds")
         path_np = np.array(path).T
-        # self.num_ctrl_points = max(5, len(path_np[0]) // 2)
+        # self.get_logger().info(f"Path_np: {path_np}")
+        # self.num_ctrl_points = max(5, int(len(path_np[0]) // 2))
         # self.get_logger().info(f"Length of path: {len(path)}, Shape of Path: {path_np.shape}\nPath: {path}")
         self.publish_spline_path(path_np, True)
         # self.get_logger().info(f"Published A* path")
+        # return
         
         cps = path_np[:, ::max(1, len(path_np[0]) // self.num_ctrl_points)]
         # cps = path_np
@@ -152,7 +167,8 @@ class BSOHFCController(Node):
         fixed_start = cps[:, 0]
         fixed_end = cps[:, -1]
         initial_vars = cps[:, 1:-1].flatten()
-        initial_vars += np.random.normal(scale=0.01, size=initial_vars.shape)
+        # initial_vars += np.random.normal(scale=0.1, size=initial_vars.shape)
+        # initial_vars = gaussian_filter1d(path_np, sigma=1.0, axis=1)[:, 1:-1].flatten()
 
         def penalty(x, y):
             return (x - y)**2 if x <= y else 0.0
@@ -171,13 +187,19 @@ class BSOHFCController(Node):
             ))
             traj = self.eval_bspline(ctrl_pts, self.num_spline_points)
 
+            w_collision = 4.0
+            w_jerk = 5.0
+            w_dynamic = 1.0
+
             cost = 0.0
             for pt in traj.T:
-                cost += self.collision_cost(pt)
+                cost += w_collision * self.collision_cost(pt)
+            
+            # self.get_logger().info(f"Collision cost: {cost:.2f}")
 
             # Smoothness (jerk)
             jerk = np.diff(ctrl_pts, n=3, axis=1)
-            cost += np.sum(np.linalg.norm(jerk, axis=0)**2)
+            cost += w_jerk * np.sum(np.linalg.norm(jerk, axis=0)**2)
 
             # Dynamics
             dt = 0.1
@@ -187,12 +209,12 @@ class BSOHFCController(Node):
                 v_norm = np.linalg.norm(v)
                 if np.isnan(v_norm):
                     return 1e6
-                cost += penalty(v_norm, self.v_max)
+                cost += w_dynamic * penalty(v_norm, self.v_max)
             for a in accs.T:
                 a_norm = np.linalg.norm(a)
                 if np.isnan(v_norm):
                     return 1e6
-                cost += penalty(a_norm, self.a_max)
+                cost += w_dynamic * penalty(a_norm, self.a_max)
             
             if np.isnan(cost) or np.isinf(cost):
                 print("NaN/inf detected in cost. Debug info:")
@@ -201,7 +223,7 @@ class BSOHFCController(Node):
                 print("jerk shape:", jerk.shape)
                 return 1e6  # Large penalty
 
-            self.get_logger().info(f"Cost: {cost}")
+            # self.get_logger().info(f"Total cost: {cost:.2f}")
             return cost
 
         # result = minimize(compute_cost, initial_vars, method='L-BFGS-B')
@@ -209,9 +231,10 @@ class BSOHFCController(Node):
         result = minimize(
             compute_cost,
             initial_vars,
-            method='L-BFGS-B',
+            # method='L-BFGS-B',
+            method='SLSQP',
             options={
-                'maxiter': 15,
+                'maxiter': 30,
                 'disp': False,
                 'gtol': 1e-3,  # allow slightly larger gradients
                 "ftol": 1e-6,  # Early stopping
@@ -230,9 +253,9 @@ class BSOHFCController(Node):
 
         opt_ctrl_pts = np.column_stack((
             fixed_start[:, None],
-            cps[:, 1:2],
+            # cps[:, 1:2],
             result.x.reshape(2, -1),
-            cps[:, -2:-1],
+            # cps[:, -2:-1],
             fixed_end[:, None]
         ))
 
@@ -253,23 +276,27 @@ class BSOHFCController(Node):
 
     def collision_cost(self, pt):
         # pt: (x, y) in world coordinates
-        angle_min = self.laser.angle_min
-        angle_inc = self.laser.angle_increment
-        ranges = np.array(self.laser.ranges)
 
-        dx = pt[0] - self.pose[0]
-        dy = pt[1] - self.pose[1]
-        r = np.hypot(dx, dy)
-        a = np.arctan2(dy, dx) - self.pose[2]
-        a = np.arctan2(np.sin(a), np.cos(a))
-        idx = int((a - angle_min) / angle_inc)
-        if 0 <= idx < len(ranges):
-            dist = ranges[idx]
-            margin = 1.5  # safe margin
-            cost = np.exp(5 * (dist - self.dthr + margin))  # smooth decay
-            return cost if dist < self.dthr + margin else 0.0
-        return 0.0
+        # use laser scan directly
+        # angle_min = self.laser.angle_min
+        # angle_inc = self.laser.angle_increment
+        # ranges = np.array(self.laser.ranges)
 
+        # dx = pt[0] - self.pose[0]
+        # dy = pt[1] - self.pose[1]
+        # r = np.hypot(dx, dy)
+        # a = np.arctan2(dy, dx) - self.pose[2]
+        # a = np.arctan2(np.sin(a), np.cos(a))
+        # idx = int((a - angle_min) / angle_inc)
+        # if 0 <= idx < len(ranges):
+        #     dist = ranges[idx]
+        #     margin = 0.5  # safe margin
+        #     cost = np.exp(5 * (dist - self.dthr + margin))  # smooth decay
+        #     return cost if dist < self.dthr + margin else 0.0
+        # return 0.0
+
+        # use EDT
+        # convert world to grid coordinates
         gx = int((pt[0] - self.grid_origin[0]) / self.grid_res)
         gy = int((pt[1] - self.grid_origin[1]) / self.grid_res)
 
@@ -278,10 +305,11 @@ class BSOHFCController(Node):
             # dist = max(1e-2, dist)
             if dist < (self.dthr + self.robot_radius):
                 # return np.exp(-5 * (dist - self.dthr))  # Higher cost closer to obstacle
-                return np.exp(5 * ((self.dthr + self.robot_radius) - dist)) 
+                return np.exp(10 * ((self.dthr + self.robot_radius) - dist)) 
                 # return (self.dthr - dist)**2 # Try quadratic cost
             else:
-                return 0.0  # Safe
+                # return 0.0  # Safe
+                return np.exp(-10 * (dist - (self.dthr + self.robot_radius)))
         else:
             return 1e3  # Outside map → heavy penalty
 
@@ -344,10 +372,14 @@ class BSOHFCController(Node):
         # index = min(self.traj_index + 3, self.spline.shape[1] - 1)
         index = self.traj_index
         point_to_follow = self.spline[:, index]
-        if np.linalg.norm(self.pose[:2] - point_to_follow) < 0.1:
+        while (np.linalg.norm(self.pose[:2] - point_to_follow) < 0.05):
             self.traj_index += 1
+            if self.traj_index >= self.spline.shape[1]:
+                break
             index = self.traj_index
-        point_to_follow = self.spline[:, index]
+            point_to_follow = self.spline[:, index]
+        # point_to_follow = self.spline[:, index]
+        self.get_logger().info(f"Trajectory index: {self.traj_index}")
         self.follow_point(point_to_follow)
 
     def follow_point(self, pt):
@@ -358,11 +390,11 @@ class BSOHFCController(Node):
         angle_diff = np.arctan2(np.sin(angle_diff), np.cos(angle_diff))
         distance = np.hypot(dx, dy)
 
-        self.get_logger().info(f"Angle difference: {np.degrees(angle_diff)}")
+        # self.get_logger().info(f"Angle difference: {np.degrees(angle_diff)}")
 
         # Parameters
-        max_lin_vel = 0.05  # m/s
-        max_ang_vel = 0.1  # rad/s
+        max_lin_vel = 0.1  # m/s
+        max_ang_vel = 0.02  # rad/s
         angle_gain = 1.0   # angular proportional gain
         slowdown_angle_thresh = 1.0  # rad
         min_lin_vel = 0.005
@@ -373,7 +405,7 @@ class BSOHFCController(Node):
         cmd.linear.x = max(min_lin_vel, max_lin_vel * speed_scale) if distance > 0.05 else 0.0
         cmd.angular.z = np.clip(angle_gain * angle_diff, -max_ang_vel, max_ang_vel)
 
-        self.get_logger().info("Computing cmd command")
+        # self.get_logger().info("Computing cmd command")
 
         self.pub_cmd.publish(cmd)
     

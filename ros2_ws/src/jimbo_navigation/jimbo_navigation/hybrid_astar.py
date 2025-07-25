@@ -3,17 +3,21 @@ import heapq
 import math
 
 class HybridAStarPlanner:
-    def __init__(self, occ_grid, resolution, origin, robot_radius=0.2):
+    def __init__(self, occ_grid, resolution, origin, logger, robot_radius=0.3):
         self.grid = occ_grid
         self.res = resolution
         self.origin = origin
-        self.height, self.width = occ_grid.shape
+        self.height, self.width = None, None
         self.robot_radius = robot_radius
 
         self.steering_angles = [-0.6, -0.3, 0.0, 0.3, 0.6]  # radians
-        self.step_size = 0.2  # meters
-        self.angle_res = np.deg2rad(15)
+        self.step_size = 0.5  # meters
+        self.angle_res = np.deg2rad(30)
         self.num_angles = int(2 * np.pi / self.angle_res)
+
+        self.logger = logger
+
+        self.logger.info(f"Initialized Hybrid A* Planner")
 
     def update_grid(self, new_grid, resolution, origin):
         self.grid = new_grid
@@ -31,11 +35,25 @@ class HybridAStarPlanner:
         y = gy * self.res + self.origin[1]
         return x, y
 
+    # def is_valid(self, x, y):
+    #     gx, gy = self.world_to_grid(x, y)
+    #     if 0 <= gx < self.width and 0 <= gy < self.height:
+    #         return self.grid[gy, gx] == 0
+    #     self.logger.info("Point is invalid!")
+    #     return False
     def is_valid(self, x, y):
         gx, gy = self.world_to_grid(x, y)
-        if 0 <= gx < self.width and 0 <= gy < self.height:
-            return self.grid[gy, gx] == 0
-        return False
+
+        radius_cells = int(self.robot_radius / self.res)
+        for dx in range(-radius_cells, radius_cells + 1):
+            for dy in range(-radius_cells, radius_cells + 1):
+                nx, ny = gx + dx, gy + dy
+                if 0 <= nx < self.width and 0 <= ny < self.height:
+                    if self.grid[ny, nx] != 0:
+                        return False
+                else:
+                    return False  # outside map is invalid
+        return True
 
     def heuristic(self, x, y, goal_x, goal_y):
         return math.hypot(goal_x - x, goal_y - y)
@@ -57,6 +75,7 @@ class HybridAStarPlanner:
         return path
 
     def plan(self, start, goal):
+        # self.logger.info(f"Start planning...")
         sx, sy = start
         gx, gy = goal
 
@@ -76,6 +95,8 @@ class HybridAStarPlanner:
         came_from = {}
 
         while open_list:
+            # self.logger.info(f"open list length: {len(open_list)}")
+            # self.logger.info(f"closed set length: {len(closed_set)}")
             _, cost, (x, y, theta), parent = heapq.heappop(open_list)
             key = node_key(x, y, theta)
 
@@ -86,19 +107,23 @@ class HybridAStarPlanner:
 
             if self.heuristic(x, y, gx, gy) < self.step_size:
                 # Reached goal
+                # self.logger.info(f"Reached goal!")
                 path = [(x, y, theta)]
                 while parent is not None:
+                    # self.logger.info(f"Parent is not None")
                     parent_key = node_key(*parent)
-                    _, parent = came_from[parent_key]
+                    parent, _ = came_from[parent_key]
                     path.append(parent)
                 path.reverse()
-                return path
+                _ = path.pop(0)
+                return [(x, y) for x, y, theta in path]
 
             for delta in self.steering_angles:
                 traj = self.simulate_motion(x, y, theta, delta)
                 x_n, y_n, theta_n = traj[-1]
 
                 if not self.is_valid(x_n, y_n):
+                    # self.logger.info(f"Point is invalid!")
                     continue
 
                 new_cost = cost + self.step_size
@@ -108,5 +133,6 @@ class HybridAStarPlanner:
                     cost_so_far[next_key] = new_cost
                     priority = new_cost + self.heuristic(x_n, y_n, gx, gy)
                     heapq.heappush(open_list, (priority, new_cost, (x_n, y_n, theta_n), (x, y, theta)))
+
 
         return None  # Failed to find path

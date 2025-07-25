@@ -41,7 +41,8 @@ class ScanToOccupancyGrid(Node):
 
         qos = QoSProfile(depth=10, durability=DurabilityPolicy.VOLATILE, reliability=ReliabilityPolicy.BEST_EFFORT)
         self.sub = self.create_subscription(LaserScan, '/scan', self.scan_callback, qos)
-        self.pub = self.create_publisher(OccupancyGrid, '/my_occupancy_grid', 10)
+        self.pub = self.create_publisher(OccupancyGrid, '/occupancy_grid', 10)
+        self.inflated_pub = self.create_publisher(OccupancyGrid, '/inflated_occupancy_grid', 10)
 
     def scan_callback(self, msg: LaserScan):
         self.grid.fill(0)  # clear grid
@@ -86,12 +87,16 @@ class ScanToOccupancyGrid(Node):
         except Exception as e:
             self.get_logger().warn(f"Transform error: {e}")
             return
-        
-        self.grid = self.inflate_obstacles(self.grid, int(0.05 / self.resolution)) * 100
 
         self.occupancy_grid.data = self.grid.flatten().tolist()
         self.occupancy_grid.header.stamp = self.get_clock().now().to_msg()
         self.pub.publish(self.occupancy_grid)
+
+        self.grid = self.inflate_obstacles(self.grid, int(0.05 / self.resolution)) * 100
+        self.occupancy_grid.data = self.grid.flatten().tolist()
+        self.occupancy_grid.header.stamp = self.get_clock().now().to_msg()
+        self.inflated_pub.publish(self.occupancy_grid)
+
 
     def inflate_obstacles(self, grid, radius_cells):
         return binary_dilation(grid, iterations=radius_cells).astype(np.uint8)
