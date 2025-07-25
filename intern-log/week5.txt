@@ -25,3 +25,10 @@
 # Issues
  - uwb connections often suddenly change, while running (eg: uwb_front_left changes from ttyACM5 to ttyACM0)
  - measurement then freezes
+ - A* planned trajectory doesn't clear obstacles enough, even with B-spline optimization
+
+## July 25
+# Plan
+ - finish local mapping w/ occupancy map
+ - finish path planning w/ A* and B-spline
+ - tune controller to accurately follow obstacle-free trajectory
