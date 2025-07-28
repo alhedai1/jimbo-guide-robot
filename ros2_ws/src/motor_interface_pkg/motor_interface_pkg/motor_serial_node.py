@@ -11,13 +11,14 @@ import serial
 import math
 import signal
 import sys
+from pymodbus.client.serial import ModbusSerialClient as ModbusClient
 
 class MotorSerialNode(Node):
     def __init__(self):
         super().__init__('motor_serial_node')
 
         # Declare parameters
-        self.declare_parameter('port', '/dev/motor_arduino')
+        self.declare_parameter('port', '/dev/motor_usb')
         self.declare_parameter('baudrate', 115200)
         self.declare_parameter('wheel_radius', 0.0635)
         self.declare_parameter('wheel_base', 0.3) # Distance between left and right wheels
@@ -33,7 +34,10 @@ class MotorSerialNode(Node):
 
         # Serial
         try:
-            self.ser = serial.Serial(self.port, self.baudrate, timeout=0.1)
+            # self.ser = serial.Serial(self.port, self.baudrate, timeout=0.1)
+            self.client = ModbusClient(port=self.port, baudrate=115200)
+            self.unit_id = 1  # Modbus slave ID of ZLAC8015D
+            self.client.connect()
             self.get_logger().info(f"Serial opened on {self.port} at {self.baudrate} baud.")
         except serial.SerialException:
             self.get_logger().error(f"Unable to open serial port {self.port}")
@@ -47,6 +51,9 @@ class MotorSerialNode(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
 
         self.timer = self.create_timer(0.05, self.update_loop)  # 20Hz
+
+        # enable both motors
+        self.client.write_register(address=0x200E, value=8, device_id=self.unit_id)
 
         signal.signal(signal.SIGINT, self.handle_sigint)
 
@@ -64,35 +71,44 @@ class MotorSerialNode(Node):
         left_rpm = -int(v_rpm - a_rpm / 2)
         right_rpm = int(v_rpm + a_rpm / 2)
 
-        cmd = f"R{left_rpm},{right_rpm}\n"
-        self.ser.write(cmd.encode())
+        # cmd = f"R{left_rpm},{right_rpm}\n"  #cccc
+        # self.ser.write(cmd.encode())
+        self.client.write_register(address=0x2088, value=left_rpm & 0xFFFF, device_id=self.unit_id)
+        self.client.write_register(address=0x2089, value=right_rpm & 0xFFFF, device_id=self.unit_id)
 
     # read MotorRPM command and send to arduino
     def rpm_callback(self, msg: MotorRPM):
         # 왼쪽 RPM 부호 반전
         left_rpm = -int(msg.left_rpm)
         right_rpm = int(msg.right_rpm)
-        cmd = f"R{left_rpm},{right_rpm}\n"
-        self.get_logger().info(f"Manual RPM Command: {cmd.strip()}")
-        self.ser.write(cmd.encode())
+        self.client.write_register(address=0x2088, value=left_rpm & 0xFFFF, device_id=self.unit_id)
+        self.client.write_register(address=0x2089, value=right_rpm & 0xFFFF, device_id=self.unit_id)
+        # cmd = f"R{left_rpm},{right_rpm}\n"  #cccc
+        # self.get_logger().info(f"Manual RPM Command: {cmd.strip()}")
+        # self.ser.write(cmd.encode())
 
     # read encoder data from arduino (starts with "E:") and publish
-    def update_loop(self):
+    def update_loop(self):      #cccc
         try:
-            line = self.ser.readline().decode().strip()
+            # line = self.ser.readline().decode().strip()
+            left_rpm = self.client.read_holding_registers(address=0x20AB, count=1, device_id=self.unit_id)
+            right_rpm = self.client.read_holding_registers(address=0x20AC, count=1, device_id=self.unit_id)
+            self.publish_odom(left_rpm, right_rpm)
+            self.publish_motor_rpm(left_rpm, right_rpm)
+    
         except UnicodeDecodeError:
             return
 
-        if line.startswith("E:") and "," in line:
-            try:
-                data = line[2:]
-                left_rpm_str, right_rpm_str = data.split(",")
-                left_rpm = int(left_rpm_str)
-                right_rpm = int(right_rpm_str)
-                self.publish_odom(left_rpm, right_rpm)
-                self.publish_motor_rpm(left_rpm, right_rpm)
-            except ValueError:
-                self.get_logger().warn("Failed to parse RPM data.")
+        # if line.startswith("E:") and "," in line:
+        #     try:
+        #         data = line[2:]
+        #         left_rpm_str, right_rpm_str = data.split(",")
+        #         left_rpm = int(left_rpm_str)
+        #         right_rpm = int(right_rpm_str)
+        #         self.publish_odom(left_rpm, right_rpm)
+        #         self.publish_motor_rpm(left_rpm, right_rpm)
+        #     except ValueError:
+        #         self.get_logger().warn("Failed to parse RPM data.")
 
     def publish_odom(self, left_rpm, right_rpm):
         now = self.get_clock().now()
@@ -202,7 +218,8 @@ class MotorSerialNode(Node):
 
     def handle_sigint(self, signum, frame):
         try:
-            self.ser.write(b"R0,0\n")
+            self.client.write_register(address=0x2088, value=0 & 0xFFFF, device_id=self.unit_id)
+            self.client.write_register(address=0x2089, value=0 & 0xFFFF, device_id=self.unit_id)
             self.get_logger().info("Sent stop command to motors on SIGINT.")
         except Exception as e:
             self.get_logger().warn(f"Failed to send stop command on SIGINT: {e}")

@@ -173,6 +173,18 @@ def generate_launch_description():
         ]
     )
 
+    mpc_node = TimerAction(
+        period=1.0,  # seconds
+        actions=[
+            Node(
+                package='jimbo_navigation',
+                executable='mpc_follower',
+                name='mpc_follower',
+                output='screen',
+            )
+        ]
+    )
+
     nav_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
@@ -268,6 +280,7 @@ def generate_launch_description():
         lidar_launch,
         occupancy_node,
         bso_hfc_node,
+        mpc_node,
         # gazebo_server,
         # gazebo_client,
         # delayed_spawn,

@@ -76,7 +76,7 @@ class BSOHFCController(Node):
 
         self.spline = None
         self.traj_index = 1
-        self.control_timer = self.create_timer(0.05, self.control_loop)
+        # self.control_timer = self.create_timer(0.05, self.pure_pursuit)
         self.optimize_timer = self.create_timer(0.5, self.optimize_path)
 
         self.astar = HybridAStarPlanner(self.occ_grid, self.grid_res, self.grid_origin, self.get_logger())
@@ -262,7 +262,8 @@ class BSOHFCController(Node):
         traj = self.eval_bspline(opt_ctrl_pts, self.num_spline_points)
         self.publish_spline_path(traj, False)
         self.spline = traj  # Save the result
-        self.traj_index = 1
+        self.traj_index = 0
+        self.get_logger().info(f"Shape of path: {traj.shape}")
 
     def eval_bspline(self, ctrl_pts, num_points):
         from scipy.interpolate import BSpline
@@ -360,26 +361,28 @@ class BSOHFCController(Node):
 
     def control_loop(self):
         if self.spline is None or self.pose is None:
+            self.get_logger().info(f"Spline or Pose is None.")
             return
         if self.traj_index >= self.spline.shape[1]:
             self.stop()
             self.spline = None
+            self.get_logger().info(f"Trajectory index > Spline length.")
             return
         if np.linalg.norm(self.pose[:2] - self.target) < self.target_distance_threshold:
             self.stop()
             return
 
-        # index = min(self.traj_index + 3, self.spline.shape[1] - 1)
-        index = self.traj_index
+        index = min(self.traj_index + 3, self.spline.shape[1] - 1)
+        # index = self.traj_index
         point_to_follow = self.spline[:, index]
-        while (np.linalg.norm(self.pose[:2] - point_to_follow) < 0.05):
+        while (np.linalg.norm(self.pose[:2] - point_to_follow) < 0.1):
             self.traj_index += 1
             if self.traj_index >= self.spline.shape[1]:
                 break
             index = self.traj_index
             point_to_follow = self.spline[:, index]
         # point_to_follow = self.spline[:, index]
-        self.get_logger().info(f"Trajectory index: {self.traj_index}")
+        # self.get_logger().info(f"Trajectory index: {self.traj_index}")
         self.follow_point(point_to_follow)
 
     def follow_point(self, pt):
@@ -391,13 +394,14 @@ class BSOHFCController(Node):
         distance = np.hypot(dx, dy)
 
         # self.get_logger().info(f"Angle difference: {np.degrees(angle_diff)}")
+        self.get_logger().info(f"Idx: {self.traj_index}, Dist: {distance:.2f}, Angle: {angle_diff:.2f}")
 
         # Parameters
-        max_lin_vel = 0.1  # m/s
-        max_ang_vel = 0.02  # rad/s
-        angle_gain = 1.0   # angular proportional gain
+        max_lin_vel = 0.01  # m/s
+        max_ang_vel = 0.03  # rad/s
+        angle_gain = 0.1   # angular proportional gain
         slowdown_angle_thresh = 1.0  # rad
-        min_lin_vel = 0.005
+        min_lin_vel = 0.0
 
         # Adjust linear speed based on angle error
         speed_scale = max(0.0, 1.0 - abs(angle_diff) / slowdown_angle_thresh)
@@ -405,7 +409,51 @@ class BSOHFCController(Node):
         cmd.linear.x = max(min_lin_vel, max_lin_vel * speed_scale) if distance > 0.05 else 0.0
         cmd.angular.z = np.clip(angle_gain * angle_diff, -max_ang_vel, max_ang_vel)
 
-        # self.get_logger().info("Computing cmd command")
+        if abs(angle_diff) > np.pi / 6:
+            cmd.linear.x = 0.0
+
+        self.pub_cmd.publish(cmd)
+    
+    def pure_pursuit(self):
+        if self.spline is None or self.pose is None:
+            return
+
+        # Find the lookahead point
+        lookahead_dist = 0.3
+        x, y, theta = self.pose
+        found = False
+        for i in range(self.traj_index, self.spline.shape[1]):
+            dx = self.spline[0, i] - x
+            dy = self.spline[1, i] - y
+            dist = np.hypot(dx, dy)
+            if dist >= lookahead_dist:
+                point_to_follow = np.array([self.spline[0, i], self.spline[1, i]])
+                self.traj_index = i
+                found = True
+                break
+        if not found:
+            self.stop()
+            return
+        
+        desired_theta = np.arctan2(point_to_follow[1], point_to_follow[0])
+        angle_error = desired_theta - self.pose[2]
+        angle_error = np.arctan2(np.sin(angle_error), np.cos(angle_error))
+
+
+        # Transform to robot frame
+        local_x = np.cos(-theta) * (point_to_follow[0] - x) - np.sin(-theta) * (point_to_follow[1] - y)
+        local_y = np.sin(-theta) * (point_to_follow[0] - x) + np.cos(-theta) * (point_to_follow[1] - y)
+
+        curvature = 2 * local_y / (lookahead_dist ** 2 + 1e-6)
+        linear_velocity = 0.01
+        angular_velocity = linear_velocity * curvature * 0.3
+
+        cmd = Twist()
+        cmd.linear.x = linear_velocity
+        cmd.angular.z = np.clip(angular_velocity, -0.1, 0.1)
+
+        if abs(angle_error) > np.deg2rad(30):
+            cmd.linear.x = 0.0
 
         self.pub_cmd.publish(cmd)
     

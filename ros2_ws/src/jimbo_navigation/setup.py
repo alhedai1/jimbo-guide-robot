@@ -32,7 +32,7 @@ setup(
     maintainer_email='jimbo@todo.todo',
     description='TODO: Package description',
     license='TODO: License declaration',
-    tests_require=['pytest'],
+    # tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'safety_monitor = jimbo_navigation.safety_monitor:main',
@@ -40,7 +40,8 @@ setup(
             'user_follower_2 = jimbo_navigation.user_follower_2:main',
             'tf_test = jimbo_navigation.tf_test:main',
             'bso_hfc = jimbo_navigation.bso_hfc:main',
-            'occ_grid = jimbo_navigation.occ_grid:main'
+            'occ_grid = jimbo_navigation.occ_grid:main',
+            'mpc_follower = jimbo_navigation.mpc_follower:main'
         ],
     },
 )
