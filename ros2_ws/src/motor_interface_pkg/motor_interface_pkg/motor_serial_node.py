@@ -91,8 +91,16 @@ class MotorSerialNode(Node):
     def update_loop(self):      #cccc
         try:
             # line = self.ser.readline().decode().strip()
-            left_rpm = self.client.read_holding_registers(address=0x20AB, count=1, device_id=self.unit_id)
-            right_rpm = self.client.read_holding_registers(address=0x20AC, count=1, device_id=self.unit_id)
+            resp1 = self.client.read_holding_registers(address=0x20AB, count=1, device_id=self.unit_id)
+            resp2 = self.client.read_holding_registers(address=0x20AC, count=1, device_id=self.unit_id)
+            if not resp1.isError():
+                left_rpm = resp1.registers[0]
+                if left_rpm > 32767:
+                    left_rpm -= 65536
+            if not resp2.isError():
+                right_rpm = resp2.registers[0]
+                if right_rpm > 32767:
+                    right_rpm -= 65536
             self.publish_odom(left_rpm, right_rpm)
             self.publish_motor_rpm(left_rpm, right_rpm)
     

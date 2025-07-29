@@ -33,7 +33,7 @@ class BSOHFCController(Node):
         self.declare_parameter('dthr', 0.2)  # obstacle clearance threshold
         self.declare_parameter('v_max', 0.03)
         self.declare_parameter('a_max', 0.1)
-        self.declare_parameter('target_distance_threshold', 0.2)
+        self.declare_parameter('target_distance_threshold', 0.0) # adjust threshold (0.0 just for testing)
         self.declare_parameter('num_ctrl_points', 5)
         self.declare_parameter('num_spline_points', 15) # try 50 spline points
 
@@ -76,8 +76,8 @@ class BSOHFCController(Node):
 
         self.spline = None
         self.traj_index = 1
-        # self.control_timer = self.create_timer(0.05, self.pure_pursuit)
-        self.optimize_timer = self.create_timer(0.5, self.optimize_path)
+        # self.control_timer = self.create_timer(0.05, self.control_loop)
+        self.optimize_timer = self.create_timer(1, self.optimize_path)
 
         self.astar = HybridAStarPlanner(self.occ_grid, self.grid_res, self.grid_origin, self.get_logger())
         
@@ -130,7 +130,7 @@ class BSOHFCController(Node):
 
         if self.path_ready:
             return
-        self.path_ready = True
+        # self.path_ready = True
 
         start = self.pose[:2]
         goal = self.target
@@ -159,10 +159,11 @@ class BSOHFCController(Node):
         # self.get_logger().info(f"Length of path: {len(path)}, Shape of Path: {path_np.shape}\nPath: {path}")
         self.publish_spline_path(path_np, True)
         # self.get_logger().info(f"Published A* path")
-        # return
+        return
         
-        cps = path_np[:, ::max(1, len(path_np[0]) // self.num_ctrl_points)]
-        # cps = path_np
+        # self.get_logger().info(f"length of path_np: {path_np.shape}")
+        cps = path_np[:, ::max(1, len(path_np[0]) // self.num_ctrl_points)] # doesn't guarantee that last point (goal) is included in control points
+        # self.get_logger().info(f"length of cps: {cps.shape}")
 
         fixed_start = cps[:, 0]
         fixed_end = cps[:, -1]
@@ -372,8 +373,8 @@ class BSOHFCController(Node):
             self.stop()
             return
 
-        index = min(self.traj_index + 3, self.spline.shape[1] - 1)
-        # index = self.traj_index
+        # index = min(self.traj_index + 3, self.spline.shape[1] - 1)
+        index = self.traj_index
         point_to_follow = self.spline[:, index]
         while (np.linalg.norm(self.pose[:2] - point_to_follow) < 0.1):
             self.traj_index += 1
@@ -397,8 +398,8 @@ class BSOHFCController(Node):
         self.get_logger().info(f"Idx: {self.traj_index}, Dist: {distance:.2f}, Angle: {angle_diff:.2f}")
 
         # Parameters
-        max_lin_vel = 0.01  # m/s
-        max_ang_vel = 0.03  # rad/s
+        max_lin_vel = 0.03  # m/s
+        max_ang_vel = 0.05  # rad/s
         angle_gain = 0.1   # angular proportional gain
         slowdown_angle_thresh = 1.0  # rad
         min_lin_vel = 0.0

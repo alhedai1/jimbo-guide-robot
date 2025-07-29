@@ -21,7 +21,6 @@ setup(
     maintainer_email='jimbo@todo.todo',
     description='Motor interface Python package',
     license='MIT',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'motor_serial_node = motor_interface_pkg.motor_serial_node:main',

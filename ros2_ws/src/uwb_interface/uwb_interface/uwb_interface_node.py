@@ -252,9 +252,9 @@ class UWBInterfaceNode(Node):
         std_x = stdev(xs)
         std_y = stdev(ys)
 
-        self.get_logger().info(
-            f"UWB STATS — Mean: ({mean_x:.2f}, {mean_y:.2f}) | StdDev: ({std_x*100:.1f}cm, {std_y*100:.1f}cm)"
-        )
+        # self.get_logger().info(
+        #     f"UWB STATS — Mean: ({mean_x:.2f}, {mean_y:.2f}) | StdDev: ({std_x*100:.1f}cm, {std_y*100:.1f}cm)"
+        # )
 
     def destroy_node(self):
         for tag in self.tags:

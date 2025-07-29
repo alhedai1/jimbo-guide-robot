@@ -122,7 +122,7 @@ def generate_launch_description():
         executable='motor_serial_node',
         name='motor_serial_node',
         parameters=[{
-            'port': '/dev/motor_arduino',
+            'port': '/dev/motor_usb',
             'baudrate': 115200,
             'wheel_radius': 0.0635,
             'wheel_base': 0.3
@@ -173,17 +173,17 @@ def generate_launch_description():
         ]
     )
 
-    mpc_node = TimerAction(
-        period=1.0,  # seconds
-        actions=[
-            Node(
-                package='jimbo_navigation',
-                executable='mpc_follower',
-                name='mpc_follower',
-                output='screen',
-            )
-        ]
-    )
+    # mpc_node = TimerAction(
+    #     period=1.0,  # seconds
+    #     actions=[
+    #         Node(
+    #             package='jimbo_navigation',
+    #             executable='mpc_follower',
+    #             name='mpc_follower',
+    #             output='screen',
+    #         )
+    #     ]
+    # )
 
     nav_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
@@ -276,11 +276,11 @@ def generate_launch_description():
         motor_node,
         robot_description_launch,
         rviz_node,
-        # uwb_launch,
+        uwb_launch,
         lidar_launch,
         occupancy_node,
         bso_hfc_node,
-        mpc_node,
+        # mpc_node,
         # gazebo_server,
         # gazebo_client,
         # delayed_spawn,

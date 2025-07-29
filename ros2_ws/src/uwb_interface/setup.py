@@ -18,7 +18,7 @@ setup(
     maintainer_email='ahmedalhidai@outlook.com',
     description='TODO: Package description',
     license='TODO: License declaration',
-    tests_require=['pytest'],
+    # tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'uwb_interface_node = uwb_interface.uwb_interface_node:main',

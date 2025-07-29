@@ -5,8 +5,8 @@ from nav_msgs.msg import Odometry, Path, OccupancyGrid
 from std_msgs.msg import Bool, Header
 from tf_transformations import euler_from_quaternion
 import numpy as np
-import numpy as np
 import cvxpy as cp
+import math
 
 class MPCFollower(Node):
     def __init__(self):
@@ -43,7 +43,7 @@ class MPCFollower(Node):
 
         x0 = np.array(self.pose)  # current state [x, y, theta]
         dt = 0.1
-        H = 10
+        H = 3
 
         # 1. Extract reference path segment
         ref = self.get_reference_segment(x0, H, dt)
@@ -64,16 +64,20 @@ class MPCFollower(Node):
             v = u[0, t]
             w = u[1, t]
 
-            next_x = x[0, t] + dt * cp.cos(theta) * v
-            next_y = x[1, t] + dt * cp.sin(theta) * v
+            theta0 = x0[2]
+            cos_theta = np.cos(theta0)
+            sin_theta = np.sin(theta0)
+
+            next_x = x[0, t] + dt * cos_theta * u[0, t]
+            next_y = x[1, t] + dt * sin_theta * u[0, t]
             next_theta = x[2, t] + dt * w
 
             constraints += [
                 x[0, t + 1] == next_x,
                 x[1, t + 1] == next_y,
                 x[2, t + 1] == next_theta,
-                cp.abs(v) <= 0.2,
-                cp.abs(w) <= 1.0,
+                cp.abs(v) <= 0.01,
+                cp.abs(w) <= 0.06,
             ]
 
             # Tracking cost
@@ -100,6 +104,7 @@ class MPCFollower(Node):
 
         dists = np.linalg.norm(self.path.T - x0[:2], axis=1)
         start = np.argmin(dists)
+        self.get_logger().info(f"Start: {start}")
 
         end = start + H
         if end >= self.path.shape[1]:
@@ -112,6 +117,8 @@ class MPCFollower(Node):
             last = ref_segment[:, -1:]
             pad = np.repeat(last, H - ref_segment.shape[1], axis=1)
             ref_segment = np.concatenate((ref_segment, pad), axis=1)
+
+        # self.get_logger().info(f"Ref: {ref_segment}")
 
         return ref_segment
 

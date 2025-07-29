@@ -9,3 +9,7 @@
 ## July 29
 # Plan
  - implement MPC controller and tune to follow planned trajectory accurately
+ - make trajectory planning real-time and reactive, updating trajectory based on uwb target position
+# Done
+ - mpc control seems a bit complicated -> kept simple custom proportional control for now
+ - 
