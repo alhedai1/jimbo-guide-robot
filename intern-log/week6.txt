@@ -1,0 +1,11 @@
+
+## July 28
+ - tested different ways to control robot to follow trajectory (simple proportional control, pure pursuit, mpc)
+    robot doesn't follow accurately (zigzag motion, not curving enough on sharp curves, etc)
+ - issue: sbc constantly restarting -> solved by changing power adapter
+ - issue: uwb sensors, one always disconnects randomly, usually the 4th port on the hub (attempt power cycle then fails, most of the time)
+ - removed arduino board, using usb-rs485 adapter to directly connect to motor driver, modified motor code to use pymodbus library
+
+## July 29
+# Plan
+ - implement MPC controller and tune to follow planned trajectory accurately
