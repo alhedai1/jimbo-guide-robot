@@ -17,4 +17,4 @@
 
 ## July 30
 # Done
- - implemented DWA controller as alternative, robot navigates from start to goal fairly well
+ - tried implementing DWA controller as alternative, needs tuning, robot doesnt navigate well
