@@ -40,6 +40,14 @@ class DWAController(Node):
 
         self.ob = None
 
+        self.pose = None
+        self.state = None
+        self.target = None
+        self.occ_grid = None
+        self.grid_res = None
+        self.grid_origin = None
+        self.tracking = False
+
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
@@ -49,14 +57,19 @@ class DWAController(Node):
         self.goal_sub = self.create_subscription(PoseStamped, 'goal_pose', self.goal_callback, 10)
         self.pub_cmd = self.create_publisher(Twist, '/cmd_vel', 10)
 
+        self.timer = self.create_timer(0.1, self.control_loop)
+
     def goal_callback(self, msg: PoseStamped):
         self.target = np.array([msg.pose.position.x, msg.pose.position.y])
 
-    def odom_callback(self, msg):
+    def odom_callback(self, msg: Odometry):
         pos = msg.pose.pose.position
         ori = msg.pose.pose.orientation
+        v = msg.twist.twist.linear.x
+        w = msg.twist.twist.angular.z
         _, _, yaw = euler_from_quaternion([ori.x, ori.y, ori.z, ori.w])
         self.pose = np.array([pos.x, pos.y, yaw])
+        self.state = np.array([pos.x, pos.y, yaw, v, w])
 
     def uwb_callback(self, msg):
         # if not self.target_locked:
@@ -77,7 +90,7 @@ class DWAController(Node):
         self.occ_grid = np.array(data, dtype=np.int8).reshape((height, width))
         self.grid_res = msg.info.resolution
         self.grid_origin = (msg.info.origin.position.x, msg.info.origin.position.y)
-        self.edt = self.compute_edt(self.occ_grid, self.grid_res)
+        # self.edt = self.compute_edt(self.occ_grid, self.grid_res)
 
         obstacles = []
         for idx, value in enumerate(data):
@@ -89,9 +102,27 @@ class DWAController(Node):
                 y = self.grid_origin[1] + (map_y + 0.5) * self.grid_res
 
                 obstacles.append((x, y))
-        if not self.obstacles:
-            self.obstacles = obstacles
-            self.dwa = DWAController(self.obstacles)
+        if not self.ob:
+            self.ob = obstacles
+    
+    def control_loop(self):
+        if self.state is None or self.target is None or self.occ_grid is None:
+            return
+        
+        if not self.tracking:
+            start = self.state
+            goal = self.target
+            distance = np.linalg.norm(goal - start[:2])
+            self.get_logger().info(f'start: {start[:2]}, goal: {goal}, distance: {distance:.3f}')
+            self.tracking = True
+
+        # while True:
+        u, trajectory = self.dwa_control(self.state, goal)
+        self.get_logger(f"Best_u: {u} | Best Traj: {trajectory}")
+        cmd = Twist()
+        cmd.linear.x = u[0]
+        cmd.angular.z = u[1]
+        self.pub_cmd.publish(cmd)
 
     def dwa_control(self, x, goal):
         dw = self.calc_dynamic_window(x)
