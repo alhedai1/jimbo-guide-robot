@@ -24,6 +24,7 @@ from scipy.ndimage import distance_transform_edt
 from scipy.ndimage import binary_dilation
 from typing import Tuple, List
 from scipy.ndimage import gaussian_filter1d
+from jimbo_navigation.dwa import DWAController
 
 class BSOHFCController(Node):
     def __init__(self):
@@ -80,6 +81,9 @@ class BSOHFCController(Node):
         self.optimize_timer = self.create_timer(1, self.optimize_path)
 
         self.astar = HybridAStarPlanner(self.occ_grid, self.grid_res, self.grid_origin, self.get_logger())
+
+        self.obstacles = None
+        # self.dwa = DWAController()
         
     
     def capture_callback(self, msg):
@@ -115,11 +119,26 @@ class BSOHFCController(Node):
     def occupancy_callback(self, msg):
         width = msg.info.width
         height = msg.info.height
-        data = np.array(msg.data, dtype=np.int8).reshape((height, width))
-        self.occ_grid = data
+        data = msg.data
+        self.occ_grid = np.array(data, dtype=np.int8).reshape((height, width))
         self.grid_res = msg.info.resolution
         self.grid_origin = (msg.info.origin.position.x, msg.info.origin.position.y)
         self.edt = self.compute_edt(self.occ_grid, self.grid_res)
+
+        obstacles = []
+        for idx, value in enumerate(data):
+            if value > 50:
+                map_x = idx % width
+                map_y = idx // width
+
+                x = self.grid_origin[0] + (map_x + 0.5) * self.grid_res
+                y = self.grid_origin[1] + (map_y + 0.5) * self.grid_res
+
+                obstacles.append((x, y))
+        if not self.obstacles:
+            self.obstacles = obstacles
+            self.dwa = DWAController(self.obstacles)
+
         self.publish_edt_as_grid(self.edt, self.grid_res, self.grid_origin)
         # inflated_grid = self.inflate_obstacles(self.occ_grid, int(0.2 / self.grid_res))
         self.astar.update_grid(self.occ_grid, self.grid_res, self.grid_origin)
@@ -130,7 +149,7 @@ class BSOHFCController(Node):
 
         if self.path_ready:
             return
-        # self.path_ready = True
+        self.path_ready = True
 
         start = self.pose[:2]
         goal = self.target
@@ -138,6 +157,8 @@ class BSOHFCController(Node):
 
         self.get_logger().info(f'start: {start}, goal: {goal}, distance: {distance:.3f}')
         # return
+
+        self.dwa.dwa_control(start, goal)
 
         if distance < self.target_distance_threshold:
             self.get_logger().info(f"Distance < target_distance_threshold. Stopping...")
