@@ -12,4 +12,9 @@
  - make trajectory planning real-time and reactive, updating trajectory based on uwb target position
 # Done
  - mpc control seems a bit complicated -> kept simple custom proportional control for now
- - 
+ - tuned hybrid A* trajectory planning to make it faster and more reactive
+
+
+## July 30
+# Done
+ - implemented DWA controller as alternative, robot navigates from start to goal fairly well

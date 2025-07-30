@@ -15,13 +15,13 @@ class DWAController(Node):
         super().__init__('dwa_controller')
 
         # robot parameter
-        self.max_speed = 0.5  # [m/s]
+        self.max_speed = 0.2  # [m/s]
         self.min_speed = -0.1  # [m/s]
-        self.max_yaw_rate = 5.0 * math.pi / 180.0  # [rad/s]
-        self.max_accel = 0.1  # [m/ss]
-        self.max_delta_yaw_rate = 1.0 * math.pi / 180.0  # [rad/ss]
-        self.v_resolution = 0.01  # [m/s]
-        self.yaw_rate_resolution = 0.1 * math.pi / 180.0  # [rad/s]
+        self.max_yaw_rate = 8.0 * math.pi / 180.0  # [rad/s]
+        self.max_accel = 0.04  # [m/ss]
+        self.max_delta_yaw_rate = 8.0 * math.pi / 180.0  # [rad/ss]
+        self.v_resolution = 0.002  # [m/s]
+        self.yaw_rate_resolution = 0.02 * math.pi / 180.0  # [rad/s]
         self.dt = 0.1  # [s] Time tick for motion prediction
         self.predict_time = 2.0  # [s]
         self.to_goal_cost_gain = 0.15
@@ -31,7 +31,7 @@ class DWAController(Node):
 
         # if robot_type == RobotType.circle
         # Also used to check if goal is reached in both types
-        self.robot_radius = 0.2  # [m] for collision check
+        self.robot_radius = 0.4  # [m] for collision check
 
         # if robot_type == RobotType.rectangle
         # self.robot_width = 0.5  # [m] for collision check
@@ -58,7 +58,7 @@ class DWAController(Node):
         self.goal_sub = self.create_subscription(PoseStamped, 'goal_pose', self.goal_callback, 10)
         self.pub_cmd = self.create_publisher(Twist, '/cmd_vel', 10)
 
-        self.timer = self.create_timer(0.1, self.control_loop)
+        self.timer = self.create_timer(0.1, self.control_loop) # 10 hz
 
     def goal_callback(self, msg: PoseStamped):
         self.target = np.array([msg.pose.position.x, msg.pose.position.y])
@@ -121,6 +121,7 @@ class DWAController(Node):
 
         # while True:
         u, trajectory = self.dwa_control(self.state, self.target)
+        self.publish_path(trajectory[:, :2])
         self.get_logger().info(f"Best_u: [{u[0]:.2f}, {u[1]:.2f}] | Best Traj: {np.round(trajectory, decimals=3)}")
         cmd = Twist()
         cmd.linear.x = u[0]
@@ -240,6 +241,22 @@ class DWAController(Node):
         cost = abs(math.atan2(math.sin(cost_angle), math.cos(cost_angle)))
 
         return cost
+
+    def publish_path(self, traj):
+        path_msg = Path()
+        path_msg.header.stamp = self.get_clock().now().to_msg()
+        path_msg.header.frame_id = 'base_footprint'  # Adjust if you're in another frame
+
+        for i in range(traj.shape[0]):
+            pose = PoseStamped()
+            pose.header = path_msg.header
+            pose.pose.position.x = traj[i, 0]
+            pose.pose.position.y = traj[i, 1]
+            pose.pose.position.z = 0.0
+            pose.pose.orientation.w = 1.0  # no rotation
+            path_msg.poses.append(pose)
+
+        self.path_pub.publish(path_msg)
 
     def stop(self):
         self.pub_cmd.publish(Twist())

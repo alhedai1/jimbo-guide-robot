@@ -30,7 +30,7 @@ class BSOHFCController(Node):
     def __init__(self):
         super().__init__('bso_hfc_controller')
 
-        self.declare_parameter('robot_radius', 0.3)
+        self.declare_parameter('robot_radius', 0.4)
         self.declare_parameter('dthr', 0.2)  # obstacle clearance threshold
         self.declare_parameter('v_max', 0.03)
         self.declare_parameter('a_max', 0.1)
