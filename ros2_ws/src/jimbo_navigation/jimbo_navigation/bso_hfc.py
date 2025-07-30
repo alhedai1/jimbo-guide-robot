@@ -24,7 +24,7 @@ from scipy.ndimage import distance_transform_edt
 from scipy.ndimage import binary_dilation
 from typing import Tuple, List
 from scipy.ndimage import gaussian_filter1d
-from jimbo_navigation.dwa import DWAController
+from jimbo_navigation.dwa_controller import DWAController
 
 class BSOHFCController(Node):
     def __init__(self):

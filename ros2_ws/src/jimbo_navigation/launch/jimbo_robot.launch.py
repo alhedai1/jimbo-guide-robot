@@ -11,6 +11,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch.actions import ExecuteProcess
 import subprocess
+from launch.actions import TimerAction
 
 def generate_launch_description():
     # Get the package directory
@@ -152,9 +153,7 @@ def generate_launch_description():
         # }],
         output='screen'
     )
-
-    # Add a delay before starting user_follower to ensure motor node is ready
-    from launch.actions import TimerAction
+    
     bso_hfc_node = TimerAction(
         period=1.0,  # seconds
         actions=[
@@ -169,6 +168,18 @@ def generate_launch_description():
                 # }],
                 output='screen',
                 condition=IfCondition(LaunchConfiguration('enable_follower'))
+            )
+        ]
+    )
+
+    dwa_node = TimerAction(
+        period=1.0,  # seconds
+        actions=[
+            Node(
+                package='jimbo_navigation',
+                executable='dwa_controller',
+                name='dwa_controller',
+                output='screen'
             )
         ]
     )
@@ -276,10 +287,11 @@ def generate_launch_description():
         motor_node,
         robot_description_launch,
         rviz_node,
-        uwb_launch,
+        # uwb_launch,
         lidar_launch,
         occupancy_node,
-        bso_hfc_node,
+        # bso_hfc_node,
+        dwa_node,
         # mpc_node,
         # gazebo_server,
         # gazebo_client,

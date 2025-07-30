@@ -2,26 +2,27 @@ import math
 from enum import Enum
 import numpy as np
 from nav_msgs.msg import OccupancyGrid
-from rclpy import Node
+import rclpy
+from rclpy.node import Node
 from tf2_ros import TransformListener, Buffer
 from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Pose
 from nav_msgs.msg import Odometry, Path, OccupancyGrid
 from tf_transformations import euler_from_quaternion
-import rclpy
+import math
 
 class DWAController(Node):
     def __init__(self):
         super().__init__('dwa_controller')
 
         # robot parameter
-        self.max_speed = 0.1  # [m/s]
-        self.min_speed = -0.05  # [m/s]
-        self.max_yaw_rate = 1.0 * math.pi / 180.0  # [rad/s]
-        self.max_accel = 0.02  # [m/ss]
+        self.max_speed = 0.5  # [m/s]
+        self.min_speed = -0.1  # [m/s]
+        self.max_yaw_rate = 5.0 * math.pi / 180.0  # [rad/s]
+        self.max_accel = 0.1  # [m/ss]
         self.max_delta_yaw_rate = 1.0 * math.pi / 180.0  # [rad/ss]
-        self.v_resolution = 0.001  # [m/s]
-        self.yaw_rate_resolution = 0.01 * math.pi / 180.0  # [rad/s]
-        self.dt = 0.05  # [s] Time tick for motion prediction
+        self.v_resolution = 0.01  # [m/s]
+        self.yaw_rate_resolution = 0.1 * math.pi / 180.0  # [rad/s]
+        self.dt = 0.1  # [s] Time tick for motion prediction
         self.predict_time = 2.0  # [s]
         self.to_goal_cost_gain = 0.15
         self.speed_cost_gain = 1.0
@@ -30,7 +31,7 @@ class DWAController(Node):
 
         # if robot_type == RobotType.circle
         # Also used to check if goal is reached in both types
-        self.robot_radius = 0.5  # [m] for collision check
+        self.robot_radius = 0.2  # [m] for collision check
 
         # if robot_type == RobotType.rectangle
         # self.robot_width = 0.5  # [m] for collision check
@@ -101,9 +102,11 @@ class DWAController(Node):
                 x = self.grid_origin[0] + (map_x + 0.5) * self.grid_res
                 y = self.grid_origin[1] + (map_y + 0.5) * self.grid_res
 
-                obstacles.append((x, y))
-        if not self.ob:
-            self.ob = obstacles
+                obstacles.append([x,y])
+        if self.ob is None:
+            self.ob = np.array(obstacles)
+            # for obs in self.ob:
+            #     self.get_logger().info(f"obstacle: {np.round(obs, 2)}, distance: {np.round(np.linalg.norm(obs), 2)}")
     
     def control_loop(self):
         if self.state is None or self.target is None or self.occ_grid is None:
@@ -117,8 +120,8 @@ class DWAController(Node):
             self.tracking = True
 
         # while True:
-        u, trajectory = self.dwa_control(self.state, goal)
-        self.get_logger(f"Best_u: {u} | Best Traj: {trajectory}")
+        u, trajectory = self.dwa_control(self.state, self.target)
+        self.get_logger().info(f"Best_u: [{u[0]:.2f}, {u[1]:.2f}] | Best Traj: {np.round(trajectory, decimals=3)}")
         cmd = Twist()
         cmd.linear.x = u[0]
         cmd.angular.z = u[1]
@@ -238,84 +241,12 @@ class DWAController(Node):
 
         return cost
 
-    # def make_ob(self):
-    #     self.occupany_grid.data
+    def stop(self):
+        self.pub_cmd.publish(Twist())
 
-# def plot_arrow(x, y, yaw, length=0.5, width=0.1):  # pragma: no cover
-#     plt.arrow(x, y, length * math.cos(yaw), length * math.sin(yaw),
-#               head_length=width, head_width=width)
-#     plt.plot(x, y)
-
-
-# def plot_robot(x, y, yaw, config):  # pragma: no cover
-#     if config.robot_type == RobotType.rectangle:
-#         outline = np.array([[-config.robot_length / 2, config.robot_length / 2,
-#                              (config.robot_length / 2), -config.robot_length / 2,
-#                              -config.robot_length / 2],
-#                             [config.robot_width / 2, config.robot_width / 2,
-#                              - config.robot_width / 2, -config.robot_width / 2,
-#                              config.robot_width / 2]])
-#         Rot1 = np.array([[math.cos(yaw), math.sin(yaw)],
-#                          [-math.sin(yaw), math.cos(yaw)]])
-#         outline = (outline.T.dot(Rot1)).T
-#         outline[0, :] += x
-#         outline[1, :] += y
-#         plt.plot(np.array(outline[0, :]).flatten(),
-#                  np.array(outline[1, :]).flatten(), "-k")
-#     elif config.robot_type == RobotType.circle:
-#         circle = plt.Circle((x, y), config.robot_radius, color="b")
-#         plt.gcf().gca().add_artist(circle)
-#         out_x, out_y = (np.array([x, y]) +
-#                         np.array([np.cos(yaw), np.sin(yaw)]) * config.robot_radius)
-#         plt.plot([x, out_x], [y, out_y], "-k")
-
-
-# def main(gx=10.0, gy=10.0, robot_type=RobotType.circle):
-#     print(__file__ + " start!!")
-#     # initial state [x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
-#     x = np.array([0.0, 0.0, math.pi / 8.0, 0.0, 0.0])
-#     # goal position [x(m), y(m)]
-#     goal = np.array([gx, gy])
-
-#     # input [forward speed, yaw_rate]
-
-#     config.robot_type = robot_type
-#     trajectory = np.array(x)
-#     ob = config.ob
-#     while True:
-#         u, predicted_trajectory = dwa_control(x, config, goal, ob)
-#         x = motion(x, u, config.dt)  # simulate robot
-#         trajectory = np.vstack((trajectory, x))  # store state history
-
-#         if show_animation:
-#             plt.cla()
-#             # for stopping simulation with the esc key.
-#             plt.gcf().canvas.mpl_connect(
-#                 'key_release_event',
-#                 lambda event: [exit(0) if event.key == 'escape' else None])
-#             plt.plot(predicted_trajectory[:, 0], predicted_trajectory[:, 1], "-g")
-#             plt.plot(x[0], x[1], "xr")
-#             plt.plot(goal[0], goal[1], "xb")
-#             plt.plot(ob[:, 0], ob[:, 1], "ok")
-#             plot_robot(x[0], x[1], x[2], config)
-#             plot_arrow(x[0], x[1], x[2])
-#             plt.axis("equal")
-#             plt.grid(True)
-#             plt.pause(0.0001)
-
-#         # check reaching goal
-#         dist_to_goal = math.hypot(x[0] - goal[0], x[1] - goal[1])
-#         if dist_to_goal <= config.robot_radius:
-#             print("Goal!!")
-#             break
-
-#     print("Done")
-#     if show_animation:
-#         plt.plot(trajectory[:, 0], trajectory[:, 1], "-r")
-#         plt.pause(0.0001)
-#         plt.show()
-
-
-# if __name__ == '__main__':
-#     # main(robot_type=RobotType.rectangle)
-#     main(robot_type=RobotType.circle)
+def main(args=None):
+    rclpy.init(args=None)
+    node = DWAController()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()

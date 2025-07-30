@@ -41,7 +41,7 @@ setup(
             'tf_test = jimbo_navigation.tf_test:main',
             'bso_hfc = jimbo_navigation.bso_hfc:main',
             'occ_grid = jimbo_navigation.occ_grid:main',
-            'mpc_follower = jimbo_navigation.mpc_follower:main'
+            'dwa_controller = jimbo_navigation.dwa_controller:main'
         ],
     },
 )
