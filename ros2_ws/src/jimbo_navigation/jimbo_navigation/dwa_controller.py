@@ -16,18 +16,33 @@ class DWAController(Node):
 
         # robot parameter
         self.max_speed = 0.2  # [m/s]
-        self.min_speed = -0.1  # [m/s]
-        self.max_yaw_rate = 8.0 * math.pi / 180.0  # [rad/s]
-        self.max_accel = 0.04  # [m/ss]
-        self.max_delta_yaw_rate = 8.0 * math.pi / 180.0  # [rad/ss]
-        self.v_resolution = 0.002  # [m/s]
-        self.yaw_rate_resolution = 0.02 * math.pi / 180.0  # [rad/s]
+        self.min_speed = -0.2  # [m/s]
+        self.max_yaw_rate = 1.0 * math.pi / 180.0  # [rad/s]
+        self.max_accel = 0.1  # [m/ss]
+        self.max_delta_yaw_rate = 1.0 * math.pi / 180.0  # [rad/ss]
+        self.v_resolution = 0.01  # [m/s]
+        self.yaw_rate_resolution = 0.1 * math.pi / 180.0  # [rad/s]
         self.dt = 0.1  # [s] Time tick for motion prediction
         self.predict_time = 2.0  # [s]
-        self.to_goal_cost_gain = 0.15
+        self.to_goal_cost_gain = 1.0
         self.speed_cost_gain = 1.0
         self.obstacle_cost_gain = 1.0
         self.robot_stuck_flag_cons = 0.001  # constant to prevent robot stucked
+
+        # # robot parameter
+        # self.max_speed = 0.5  # [m/s]
+        # self.min_speed = -0.1  # [m/s]
+        # self.max_yaw_rate = 5.0 * math.pi / 180.0  # [rad/s]
+        # self.max_accel = 0.1  # [m/ss]
+        # self.max_delta_yaw_rate = 1.0 * math.pi / 180.0  # [rad/ss]
+        # self.v_resolution = 0.01  # [m/s]
+        # self.yaw_rate_resolution = 0.1 * math.pi / 180.0  # [rad/s]
+        # self.dt = 0.1  # [s] Time tick for motion prediction
+        # self.predict_time = 2.0  # [s]
+        # self.to_goal_cost_gain = 0.15
+        # self.speed_cost_gain = 1.0
+        # self.obstacle_cost_gain = 1.0
+        # self.robot_stuck_flag_cons = 0.001  # constant to prevent robot stucked
 
         # if robot_type == RobotType.circle
         # Also used to check if goal is reached in both types
@@ -57,6 +72,7 @@ class DWAController(Node):
         self.sub_occupancy = self.create_subscription(OccupancyGrid, 'inflated_occupancy_grid', self.occupancy_callback, 10)
         self.goal_sub = self.create_subscription(PoseStamped, 'goal_pose', self.goal_callback, 10)
         self.pub_cmd = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.path_pub = self.create_publisher(Path, 'dwa_path', 10)
 
         self.timer = self.create_timer(0.1, self.control_loop) # 10 hz
 
@@ -116,7 +132,7 @@ class DWAController(Node):
             start = self.state
             goal = self.target
             distance = np.linalg.norm(goal - start[:2])
-            self.get_logger().info(f'start: {start[:2]}, goal: {goal}, distance: {distance:.3f}')
+            self.get_logger().info(f'start: {start}, goal: {goal}, distance: {distance:.3f}')
             self.tracking = True
 
         # while True:
