@@ -16,17 +16,17 @@ class DWAController(Node):
         super().__init__('dwa_controller')
 
         # robot parameter
-        self.max_speed = 0.3  # [m/s]
+        self.max_speed = 1.0  # [m/s]
         self.min_speed = 0.0  # [m/s]
         self.max_yaw_rate = 10.0 * math.pi / 180.0  # [rad/s]
-        self.max_accel = 0.1  # [m/ss]
+        self.max_accel = 1.0  # [m/ss]
         self.max_delta_yaw_rate = 10.0 * math.pi / 180.0  # [rad/ss]
         self.v_resolution = 0.01  # [m/s]
-        self.yaw_rate_resolution = 5 * math.pi / 180.0  # [rad/s]
+        self.yaw_rate_resolution = 0.1 * math.pi / 180.0  # [rad/s]
         self.dt = 0.1  # [s] Time tick for motion prediction
-        self.predict_time = 1.0  # [s]
-        self.to_goal_cost_gain = 0.5
-        self.speed_cost_gain = 1.0
+        self.predict_time = 3.0  # [s]
+        self.to_goal_cost_gain = 1.0
+        self.speed_cost_gain = 0.5
         self.obstacle_cost_gain = 1.5
         self.robot_stuck_flag_cons = 0.01  # constant to prevent robot stucked
 
@@ -144,18 +144,11 @@ class DWAController(Node):
             self.get_logger().info(f'start: {start}, goal: {goal}, distance: {distance:.3f}')
             self.tracking = True
 
-        # pid control
-        # x = self.state[0]
-        # y = self.state[1]
-        # theta = self.state[2]
-        # x_err = 
-
-        return
-
         # while True:
         u, trajectory = self.dwa_control(self.state, self.target)
         self.publish_path(trajectory[:, :2])
-        self.get_logger().info(f"Best_u: [{u[0]:.3f}, {u[1]:.3f}] | State: {np.round(self.state, 3)}")
+        # self.get_logger().info(f"Best_u: [{u[0]:.3f}, {u[1]:.3f}] | State: {np.round(self.state, 3)}")
+        self.get_logger().info(f"state: {self.state}")
         cmd = Twist()
         cmd.linear.x = u[0]
         cmd.angular.z = u[1]
@@ -192,6 +185,7 @@ class DWAController(Node):
         dw = [max(Vs[0], Vd[0]), min(Vs[1], Vd[1]),
             max(Vs[2], Vd[2]), min(Vs[3], Vd[3])]
 
+        # self.get_logger().info(f"dw: {dw}")
         return dw
 
 

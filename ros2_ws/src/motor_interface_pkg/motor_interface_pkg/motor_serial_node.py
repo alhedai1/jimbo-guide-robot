@@ -32,6 +32,8 @@ class MotorSerialNode(Node):
         self.x, self.y, self.theta = 0.0, 0.0, 0.0
         self.last_time = self.get_clock().now()
 
+        self.odom_count = 0
+
         # initialize PID variables
         self.target_rpm_left = 0.0
         self.target_rpm_right = 0.0
@@ -40,9 +42,9 @@ class MotorSerialNode(Node):
         self.prev_error_left = 0.0
         self.prev_error_right = 0.0
 
-        self.Kp = 1.0
+        self.Kp = 0.5
         self.Ki = 0.0
-        self.Kd = 0.0
+        self.Kd = 0.01
 
         self.dt = 0.05 # 20 hz
 
@@ -93,7 +95,7 @@ class MotorSerialNode(Node):
 
         self.target_rpm_left = left_rpm
         self.target_rpm_right = right_rpm
-        self.get_logger().info(f"target rpm: left = {self.target_rpm_left}, right = {self.target_rpm_right}")
+        # self.get_logger().info(f"target rpm: left = {self.target_rpm_left}, right = {self.target_rpm_right}")
         
         ### Add PID CONTROL
 
@@ -116,19 +118,20 @@ class MotorSerialNode(Node):
             resp2 = self.client.read_holding_registers(address=0x20AC, count=1, device_id=self.unit_id)
             if resp1.isError() or resp2.isError():
                 return
-            actual_rpm_left = resp1.registers[0] * 0.1
-            actual_rpm_right = resp2.registers[0] * 0.1
-
+            actual_rpm_left = resp1.registers[0]
+            actual_rpm_right = resp2.registers[0]
             if actual_rpm_left > 32767:
                 actual_rpm_left -= 65536
             if actual_rpm_right > 32767:
                 actual_rpm_right -= 65536
+            actual_rpm_left = int(actual_rpm_left * 0.1)
+            actual_rpm_right = int(actual_rpm_right * 0.1)
+            # self.get_logger().info(f"actual left: {actual_rpm_left}, actual right: {actual_rpm_right}")
             
             error_left = self.target_rpm_left - actual_rpm_left
             self.integral_left += error_left *self.dt
             derivative_left = (error_left - self.prev_error_left) / self.dt
             output_left = self.Kp * error_left + self.Ki * self.integral_left + self.Kd * derivative_left
-            self.get_logger().info(f"Left rpm: target = {self.target_rpm_left}, actual = {actual_rpm_left}, error = {error_left}, output = {output_left}")
             self.prev_error_left = error_left
 
             error_right = self.target_rpm_right - actual_rpm_right
@@ -139,11 +142,14 @@ class MotorSerialNode(Node):
 
             output_left = max(min(int(output_left), 300), -300)
             output_right = max((min(int(output_right), 300), -300))
+            # self.get_logger().info(f"left output: {output_left}, right output: {output_right}")
 
             self.client.write_register(address=0x2088, value=output_left & 0xFFFF, device_id=self.unit_id)
             self.client.write_register(address=0x2089, value=output_right & 0xFFFF, device_id=self.unit_id)
 
-            self.publish_odom(actual_rpm_left, actual_rpm_right)
+            if self.odom_count > 30:
+                self.publish_odom(actual_rpm_left, actual_rpm_right)
+            self.odom_count += 1
             self.publish_motor_rpm(actual_rpm_left, actual_rpm_right)
     
         except UnicodeDecodeError:
@@ -270,6 +276,8 @@ class MotorSerialNode(Node):
         try:
             self.client.write_register(address=0x2088, value=0 & 0xFFFF, device_id=self.unit_id)
             self.client.write_register(address=0x2089, value=0 & 0xFFFF, device_id=self.unit_id)
+            self.client.write_register(address=0x200E, value=0, device_id=self.unit_id)
+            self.client.close()
             self.get_logger().info("Sent stop command to motors on SIGINT.")
         except Exception as e:
             self.get_logger().warn(f"Failed to send stop command on SIGINT: {e}")
