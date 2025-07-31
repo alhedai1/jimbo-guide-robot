@@ -68,6 +68,8 @@ class MotorSerialNode(Node):
 
         # enable both motors
         self.client.write_register(address=0x200E, value=8, device_id=self.unit_id)
+        # set speed mode
+        self.client.write_register(address=0x200D, value=3, device_id=self.unit_id)
 
         signal.signal(signal.SIGINT, self.handle_sigint)
 
@@ -114,8 +116,8 @@ class MotorSerialNode(Node):
             resp2 = self.client.read_holding_registers(address=0x20AC, count=1, device_id=self.unit_id)
             if resp1.isError() or resp2.isError():
                 return
-            actual_rpm_left = resp1.registers[0]
-            actual_rpm_right = resp2.registers[0]
+            actual_rpm_left = resp1.registers[0] * 0.1
+            actual_rpm_right = resp2.registers[0] * 0.1
 
             if actual_rpm_left > 32767:
                 actual_rpm_left -= 65536
