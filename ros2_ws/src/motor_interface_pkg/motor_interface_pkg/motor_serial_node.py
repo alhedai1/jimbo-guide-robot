@@ -40,8 +40,8 @@ class MotorSerialNode(Node):
         self.prev_error_left = 0.0
         self.prev_error_right = 0.0
 
-        self.Kp = 1.2
-        self.Ki = 0.1
+        self.Kp = 1.0
+        self.Ki = 0.0
         self.Kd = 0.0
 
         self.dt = 0.05 # 20 hz
@@ -85,23 +85,15 @@ class MotorSerialNode(Node):
         left_rpm = -int(v_rpm - a_rpm / 2)
         right_rpm = int(v_rpm + a_rpm / 2)
 
-<<<<<<< HEAD
         # # write to motors directly
         # self.client.write_register(address=0x2088, value=left_rpm & 0xFFFF, device_id=self.unit_id)
         # self.client.write_register(address=0x2089, value=right_rpm & 0xFFFF, device_id=self.unit_id)
 
-        self.target_rpm_left = left_rpm
-        self.target_rpm_right = right_rpm
+        self.target_rpm_left = left_rpm * 10
+        self.target_rpm_right = right_rpm * 10
+        self.get_logger().info(f"target rpm: left = {self.target_rpm_left}, right = {self.target_rpm_right}")
         
         ### Add PID CONTROL
-=======
-        self.get_logger().info(f"Left RPM: {left_rpm}, Right RPM: {right_rpm}")
-
-        # cmd = f"R{left_rpm},{right_rpm}\n"  #cccc
-        # self.ser.write(cmd.encode())
-        self.client.write_register(address=0x2088, value=left_rpm & 0xFFFF, device_id=self.unit_id)
-        self.client.write_register(address=0x2089, value=right_rpm & 0xFFFF, device_id=self.unit_id)
->>>>>>> 80de9ce (forgot to commit)
 
     # read MotorRPM command and send to arduino
     def rpm_callback(self, msg: MotorRPM):
@@ -135,6 +127,7 @@ class MotorSerialNode(Node):
             derivative_left = (error_left - self.prev_error_left) / self.dt
             output_left = self.Kp * error_left + self.Ki * self.integral_left + self.Kd * derivative_left
             self.prev_error_left = error_left
+            self.get_logger().info(f"")
 
             error_right = self.target_rpm_right - actual_rpm_right
             self.integral_right += error_right * self.dt
