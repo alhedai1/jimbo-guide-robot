@@ -126,8 +126,8 @@ class MotorSerialNode(Node):
             self.integral_left += error_left *self.dt
             derivative_left = (error_left - self.prev_error_left) / self.dt
             output_left = self.Kp * error_left + self.Ki * self.integral_left + self.Kd * derivative_left
+            self.get_logger().info(f"Left rpm: target = {self.target_rpm_left}, actual = {actual_rpm_left}, error = {error_left}, output = {output_left}")
             self.prev_error_left = error_left
-            self.get_logger().info(f"")
 
             error_right = self.target_rpm_right - actual_rpm_right
             self.integral_right += error_right * self.dt
