@@ -85,6 +85,7 @@ class MotorSerialNode(Node):
         left_rpm = -int(v_rpm - a_rpm / 2)
         right_rpm = int(v_rpm + a_rpm / 2)
 
+<<<<<<< HEAD
         # # write to motors directly
         # self.client.write_register(address=0x2088, value=left_rpm & 0xFFFF, device_id=self.unit_id)
         # self.client.write_register(address=0x2089, value=right_rpm & 0xFFFF, device_id=self.unit_id)
@@ -93,6 +94,14 @@ class MotorSerialNode(Node):
         self.target_rpm_right = right_rpm
         
         ### Add PID CONTROL
+=======
+        self.get_logger().info(f"Left RPM: {left_rpm}, Right RPM: {right_rpm}")
+
+        # cmd = f"R{left_rpm},{right_rpm}\n"  #cccc
+        # self.ser.write(cmd.encode())
+        self.client.write_register(address=0x2088, value=left_rpm & 0xFFFF, device_id=self.unit_id)
+        self.client.write_register(address=0x2089, value=right_rpm & 0xFFFF, device_id=self.unit_id)
+>>>>>>> 80de9ce (forgot to commit)
 
     # read MotorRPM command and send to arduino
     def rpm_callback(self, msg: MotorRPM):

@@ -91,7 +91,8 @@ class DWAController(Node):
         self.state = np.array([pos.x, pos.y, yaw, v, w])
     
     def rpm_callback(self, msg: MotorRPM):
-        self.get_logger().info(f"Left RPM: {msg.left_rpm}, Right RPM: {msg.right_rpm}")
+        return
+        # self.get_logger().info(f"Left RPM: {msg.left_rpm}, Right RPM: {msg.right_rpm}")
 
     def uwb_callback(self, msg):
         # if not self.target_locked:
