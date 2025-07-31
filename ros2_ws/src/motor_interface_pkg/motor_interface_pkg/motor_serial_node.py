@@ -32,6 +32,20 @@ class MotorSerialNode(Node):
         self.x, self.y, self.theta = 0.0, 0.0, 0.0
         self.last_time = self.get_clock().now()
 
+        # initialize PID variables
+        self.target_rpm_left = 0.0
+        self.target_rpm_right = 0.0
+        self.integral_left = 0.0
+        self.integral_right = 0.0
+        self.prev_error_left = 0.0
+        self.prev_error_right = 0.0
+
+        self.Kp = 1.2
+        self.Ki = 0.1
+        self.Kd = 0.0
+
+        self.dt = 0.05 # 20 hz
+
         # Serial
         try:
             # self.ser = serial.Serial(self.port, self.baudrate, timeout=0.1)
@@ -71,10 +85,14 @@ class MotorSerialNode(Node):
         left_rpm = -int(v_rpm - a_rpm / 2)
         right_rpm = int(v_rpm + a_rpm / 2)
 
-        # cmd = f"R{left_rpm},{right_rpm}\n"  #cccc
-        # self.ser.write(cmd.encode())
-        self.client.write_register(address=0x2088, value=left_rpm & 0xFFFF, device_id=self.unit_id)
-        self.client.write_register(address=0x2089, value=right_rpm & 0xFFFF, device_id=self.unit_id)
+        # # write to motors directly
+        # self.client.write_register(address=0x2088, value=left_rpm & 0xFFFF, device_id=self.unit_id)
+        # self.client.write_register(address=0x2089, value=right_rpm & 0xFFFF, device_id=self.unit_id)
+
+        self.target_rpm_left = left_rpm
+        self.target_rpm_right = right_rpm
+        
+        ### Add PID CONTROL
 
     # read MotorRPM command and send to arduino
     def rpm_callback(self, msg: MotorRPM):
@@ -93,16 +111,36 @@ class MotorSerialNode(Node):
             # line = self.ser.readline().decode().strip()
             resp1 = self.client.read_holding_registers(address=0x20AB, count=1, device_id=self.unit_id)
             resp2 = self.client.read_holding_registers(address=0x20AC, count=1, device_id=self.unit_id)
-            if not resp1.isError():
-                left_rpm = resp1.registers[0]
-                if left_rpm > 32767:
-                    left_rpm -= 65536
-            if not resp2.isError():
-                right_rpm = resp2.registers[0]
-                if right_rpm > 32767:
-                    right_rpm -= 65536
-            self.publish_odom(left_rpm, right_rpm)
-            self.publish_motor_rpm(left_rpm, right_rpm)
+            if resp1.isError() or resp2.isError():
+                return
+            actual_rpm_left = resp1.registers[0]
+            actual_rpm_right = resp2.registers[0]
+
+            if actual_rpm_left > 32767:
+                actual_rpm_left -= 65536
+            if actual_rpm_right > 32767:
+                actual_rpm_right -= 65536
+            
+            error_left = self.target_rpm_left - actual_rpm_left
+            self.integral_left += error_left *self.dt
+            derivative_left = (error_left - self.prev_error_left) / self.dt
+            output_left = self.Kp * error_left + self.Ki * self.integral_left + self.Kd * derivative_left
+            self.prev_error_left = error_left
+
+            error_right = self.target_rpm_right - actual_rpm_right
+            self.integral_right += error_right * self.dt
+            derivative_right = (error_right - self.prev_error_right) / self.dt
+            output_right = self.Kp * error_right + self.Ki * self.integral_right + self.Kd * derivative_right
+            self.prev_error_right = error_right
+
+            output_left = max(min(int(output_left), 300), -300)
+            output_right = max((min(int(output_right), 300), -300))
+
+            self.client.write_register(address=0x2088, value=output_left & 0xFFFF, device_id=self.unit_id)
+            self.client.write_register(address=0x2089, value=output_right & 0xFFFF, device_id=self.unit_id)
+
+            self.publish_odom(actual_rpm_left, actual_rpm_right)
+            self.publish_motor_rpm(actual_rpm_left, actual_rpm_right)
     
         except UnicodeDecodeError:
             return

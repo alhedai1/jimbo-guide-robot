@@ -18,3 +18,10 @@
 ## July 30
 # Done
  - tried implementing DWA controller as alternative, needs tuning, robot doesnt navigate well
+
+## July 31
+ - 1-2: implement PID control for motors, ensure robot moves straight from start to goal (no drift)
+ - 2-3: try DWA again with PID control
+ - 3-4:
+ - 4-5:
+ - 5-6: 
