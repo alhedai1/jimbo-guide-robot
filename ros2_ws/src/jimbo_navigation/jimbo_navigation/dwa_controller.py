@@ -9,25 +9,26 @@ from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Pose
 from nav_msgs.msg import Odometry, Path, OccupancyGrid
 from tf_transformations import euler_from_quaternion
 import math
+from jimbo_msgs.msg import MotorRPM
 
 class DWAController(Node):
     def __init__(self):
         super().__init__('dwa_controller')
 
         # robot parameter
-        self.max_speed = 0.2  # [m/s]
-        self.min_speed = -0.2  # [m/s]
-        self.max_yaw_rate = 1.0 * math.pi / 180.0  # [rad/s]
+        self.max_speed = 0.3  # [m/s]
+        self.min_speed = 0.0  # [m/s]
+        self.max_yaw_rate = 10.0 * math.pi / 180.0  # [rad/s]
         self.max_accel = 0.1  # [m/ss]
-        self.max_delta_yaw_rate = 1.0 * math.pi / 180.0  # [rad/ss]
+        self.max_delta_yaw_rate = 10.0 * math.pi / 180.0  # [rad/ss]
         self.v_resolution = 0.01  # [m/s]
-        self.yaw_rate_resolution = 0.1 * math.pi / 180.0  # [rad/s]
+        self.yaw_rate_resolution = 5 * math.pi / 180.0  # [rad/s]
         self.dt = 0.1  # [s] Time tick for motion prediction
-        self.predict_time = 2.0  # [s]
-        self.to_goal_cost_gain = 1.0
+        self.predict_time = 1.0  # [s]
+        self.to_goal_cost_gain = 0.5
         self.speed_cost_gain = 1.0
-        self.obstacle_cost_gain = 1.0
-        self.robot_stuck_flag_cons = 0.001  # constant to prevent robot stucked
+        self.obstacle_cost_gain = 1.5
+        self.robot_stuck_flag_cons = 0.01  # constant to prevent robot stucked
 
         # # robot parameter
         # self.max_speed = 0.5  # [m/s]
@@ -46,7 +47,7 @@ class DWAController(Node):
 
         # if robot_type == RobotType.circle
         # Also used to check if goal is reached in both types
-        self.robot_radius = 0.4  # [m] for collision check
+        self.robot_radius = 0.3  # [m] for collision check
 
         # if robot_type == RobotType.rectangle
         # self.robot_width = 0.5  # [m] for collision check
@@ -71,6 +72,7 @@ class DWAController(Node):
         self.sub_target = self.create_subscription(PointStamped, '/uwb_filtered_position', self.uwb_callback, 10)
         self.sub_occupancy = self.create_subscription(OccupancyGrid, 'inflated_occupancy_grid', self.occupancy_callback, 10)
         self.goal_sub = self.create_subscription(PoseStamped, 'goal_pose', self.goal_callback, 10)
+        self.rpm_sub = self.create_subscription(MotorRPM, 'motor_rpm', self.rpm_callback, 10)
         self.pub_cmd = self.create_publisher(Twist, '/cmd_vel', 10)
         self.path_pub = self.create_publisher(Path, 'dwa_path', 10)
 
@@ -87,6 +89,9 @@ class DWAController(Node):
         _, _, yaw = euler_from_quaternion([ori.x, ori.y, ori.z, ori.w])
         self.pose = np.array([pos.x, pos.y, yaw])
         self.state = np.array([pos.x, pos.y, yaw, v, w])
+    
+    def rpm_callback(self, msg: MotorRPM):
+        self.get_logger().info(f"Left RPM: {msg.left_rpm}, Right RPM: {msg.right_rpm}")
 
     def uwb_callback(self, msg):
         # if not self.target_locked:
@@ -125,9 +130,12 @@ class DWAController(Node):
             #     self.get_logger().info(f"obstacle: {np.round(obs, 2)}, distance: {np.round(np.linalg.norm(obs), 2)}")
     
     def control_loop(self):
+        # if self.state is not None:
+        #     self.get_logger().info(f"State: {np.round(self.state, 3)}")
+
         if self.state is None or self.target is None or self.occ_grid is None:
             return
-        
+
         if not self.tracking:
             start = self.state
             goal = self.target
@@ -135,10 +143,18 @@ class DWAController(Node):
             self.get_logger().info(f'start: {start}, goal: {goal}, distance: {distance:.3f}')
             self.tracking = True
 
+        # pid control
+        # x = self.state[0]
+        # y = self.state[1]
+        # theta = self.state[2]
+        # x_err = 
+
+        return
+
         # while True:
         u, trajectory = self.dwa_control(self.state, self.target)
         self.publish_path(trajectory[:, :2])
-        self.get_logger().info(f"Best_u: [{u[0]:.2f}, {u[1]:.2f}] | Best Traj: {np.round(trajectory, decimals=3)}")
+        self.get_logger().info(f"Best_u: [{u[0]:.3f}, {u[1]:.3f}] | State: {np.round(self.state, 3)}")
         cmd = Twist()
         cmd.linear.x = u[0]
         cmd.angular.z = u[1]

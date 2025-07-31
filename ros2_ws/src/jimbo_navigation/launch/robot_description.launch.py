@@ -96,18 +96,18 @@ def generate_launch_description():
         output='screen'
     )
 
-    # map_tf_node = Node(
-    #     package='tf2_ros',
-    #     executable='static_transform_publisher',
-    #     name='map_tf_publisher',
-    #     arguments=[
-    #         '0', '0', '0',  # x, y, z translation
-    #         '0', '0', '0',  # roll, pitch, yaw rotation
-    #         'map',           # parent frame (map frame)
-    #         'odom'           # child frame (odometry frame)
-    #     ],
-    #     output='screen'
-    # )
+    map_tf_node = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='map_tf_publisher',
+        arguments=[
+            '0', '0', '0',  # x, y, z translation
+            '0', '0', '0',  # roll, pitch, yaw rotation
+            'map',           # parent frame (map frame)
+            'odom'           # child frame (odometry frame)
+        ],
+        output='screen'
+    )
 
     # Static transform publisher for UWB
     
@@ -117,5 +117,6 @@ def generate_launch_description():
         joint_state_publisher_node,
         # camera_tf_node,
         lidar_tf_node,
-        odom_tf_node
+        odom_tf_node,
+        map_tf_node
     ]) 
