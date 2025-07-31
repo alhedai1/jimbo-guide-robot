@@ -89,8 +89,8 @@ class MotorSerialNode(Node):
         # self.client.write_register(address=0x2088, value=left_rpm & 0xFFFF, device_id=self.unit_id)
         # self.client.write_register(address=0x2089, value=right_rpm & 0xFFFF, device_id=self.unit_id)
 
-        self.target_rpm_left = left_rpm * 10
-        self.target_rpm_right = right_rpm * 10
+        self.target_rpm_left = left_rpm
+        self.target_rpm_right = right_rpm
         self.get_logger().info(f"target rpm: left = {self.target_rpm_left}, right = {self.target_rpm_right}")
         
         ### Add PID CONTROL
