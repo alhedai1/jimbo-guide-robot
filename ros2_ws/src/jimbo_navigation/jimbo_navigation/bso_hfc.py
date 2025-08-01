@@ -34,9 +34,9 @@ class BSOHFCController(Node):
         self.declare_parameter('dthr', 0.2)  # obstacle clearance threshold
         self.declare_parameter('v_max', 0.03)
         self.declare_parameter('a_max', 0.1)
-        self.declare_parameter('target_distance_threshold', 0.0) # adjust threshold (0.0 just for testing)
-        self.declare_parameter('num_ctrl_points', 5)
-        self.declare_parameter('num_spline_points', 15) # try 50 spline points
+        self.declare_parameter('target_distance_threshold', 0.2) # adjust threshold (0.0 just for testing)
+        self.declare_parameter('num_ctrl_points', 7)
+        self.declare_parameter('num_spline_points', 30) # try 50 spline points
 
         self.robot_radius = self.get_parameter('robot_radius').value
         self.dthr = self.get_parameter('dthr').value
@@ -77,7 +77,7 @@ class BSOHFCController(Node):
 
         self.spline = None
         self.traj_index = 1
-        # self.control_timer = self.create_timer(0.05, self.control_loop)
+        self.control_timer = self.create_timer(0.05, self.control_loop)
         self.optimize_timer = self.create_timer(1, self.optimize_path)
 
         self.astar = HybridAStarPlanner(self.occ_grid, self.grid_res, self.grid_origin, self.get_logger())
@@ -124,21 +124,6 @@ class BSOHFCController(Node):
         self.grid_res = msg.info.resolution
         self.grid_origin = (msg.info.origin.position.x, msg.info.origin.position.y)
         self.edt = self.compute_edt(self.occ_grid, self.grid_res)
-
-        obstacles = []
-        for idx, value in enumerate(data):
-            if value > 50:
-                map_x = idx % width
-                map_y = idx // width
-
-                x = self.grid_origin[0] + (map_x + 0.5) * self.grid_res
-                y = self.grid_origin[1] + (map_y + 0.5) * self.grid_res
-
-                obstacles.append((x, y))
-        if not self.obstacles:
-            self.obstacles = obstacles
-            self.dwa = DWAController(self.obstacles)
-
         self.publish_edt_as_grid(self.edt, self.grid_res, self.grid_origin)
         # inflated_grid = self.inflate_obstacles(self.occ_grid, int(0.2 / self.grid_res))
         self.astar.update_grid(self.occ_grid, self.grid_res, self.grid_origin)
@@ -147,9 +132,10 @@ class BSOHFCController(Node):
         if self.pose is None or self.target is None or self.laser is None or self.occ_grid is None:
             return
 
+        # save 1 path to follow (testing)
         if self.path_ready:
             return
-        self.path_ready = True
+        # self.path_ready = True
 
         start = self.pose[:2]
         goal = self.target
@@ -157,8 +143,6 @@ class BSOHFCController(Node):
 
         self.get_logger().info(f'start: {start}, goal: {goal}, distance: {distance:.3f}')
         # return
-
-        self.dwa.dwa_control(start, goal)
 
         if distance < self.target_distance_threshold:
             self.get_logger().info(f"Distance < target_distance_threshold. Stopping...")
@@ -182,6 +166,8 @@ class BSOHFCController(Node):
         # self.get_logger().info(f"Published A* path")
         return
         
+        if len(path_np[0]) < 4:
+            return
         # self.get_logger().info(f"length of path_np: {path_np.shape}")
         cps = path_np[:, ::max(1, len(path_np[0]) // self.num_ctrl_points)] # doesn't guarantee that last point (goal) is included in control points
         # self.get_logger().info(f"length of cps: {cps.shape}")
@@ -256,11 +242,11 @@ class BSOHFCController(Node):
             # method='L-BFGS-B',
             method='SLSQP',
             options={
-                'maxiter': 30,
+                'maxiter': 100,
                 'disp': False,
-                'gtol': 1e-3,  # allow slightly larger gradients
+                # 'gtol': 1e-3,  # allow slightly larger gradients
                 "ftol": 1e-6,  # Early stopping
-                'maxls': 40,   # increase line search steps
+                # 'maxls': 40,   # increase line search steps
             }
         )
         elapsed = time.time() - start_time
@@ -404,7 +390,7 @@ class BSOHFCController(Node):
             index = self.traj_index
             point_to_follow = self.spline[:, index]
         # point_to_follow = self.spline[:, index]
-        # self.get_logger().info(f"Trajectory index: {self.traj_index}")
+        self.get_logger().info(f"Trajectory index: {self.traj_index}")
         self.follow_point(point_to_follow)
 
     def follow_point(self, pt):
@@ -419,9 +405,9 @@ class BSOHFCController(Node):
         self.get_logger().info(f"Idx: {self.traj_index}, Dist: {distance:.2f}, Angle: {angle_diff:.2f}")
 
         # Parameters
-        max_lin_vel = 0.03  # m/s
-        max_ang_vel = 0.05  # rad/s
-        angle_gain = 0.1   # angular proportional gain
+        max_lin_vel = 0.5  # m/s
+        max_ang_vel = 0.5  # rad/s
+        angle_gain = 1.0   # angular proportional gain
         slowdown_angle_thresh = 1.0  # rad
         min_lin_vel = 0.0
 

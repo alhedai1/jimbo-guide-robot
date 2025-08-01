@@ -15,35 +15,35 @@ class DWAController(Node):
     def __init__(self):
         super().__init__('dwa_controller')
 
-        # robot parameter
-        self.max_speed = 1.0  # [m/s]
+        # # robot parameter
+        # self.max_speed = 5.0  # [m/s]
+        # self.min_speed = -0.5  # [m/s]
+        # self.max_yaw_rate = 10.0 * math.pi / 180.0  # [rad/s]
+        # self.max_accel = 2.0  # [m/ss]
+        # self.max_delta_yaw_rate = 10.0 * math.pi / 180.0  # [rad/ss]
+        # self.v_resolution = 0.01  # [m/s]
+        # self.yaw_rate_resolution = 0.1 * math.pi / 180.0  # [rad/s]
+        # self.dt = 0.1  # [s] Time tick for motion prediction
+        # self.predict_time = 3.0  # [s]
+        # self.to_goal_cost_gain = 1.0
+        # self.speed_cost_gain = 5.0
+        # self.obstacle_cost_gain = 1.0
+        # self.robot_stuck_flag_cons = 0.01  # constant to prevent robot stucked
+
+        # # robot parameter
+        self.max_speed = 10.0  # [m/s]
         self.min_speed = 0.0  # [m/s]
         self.max_yaw_rate = 10.0 * math.pi / 180.0  # [rad/s]
         self.max_accel = 1.0  # [m/ss]
         self.max_delta_yaw_rate = 10.0 * math.pi / 180.0  # [rad/ss]
         self.v_resolution = 0.01  # [m/s]
-        self.yaw_rate_resolution = 0.1 * math.pi / 180.0  # [rad/s]
+        self.yaw_rate_resolution = 0.5 * math.pi / 180.0  # [rad/s]
         self.dt = 0.1  # [s] Time tick for motion prediction
         self.predict_time = 3.0  # [s]
         self.to_goal_cost_gain = 1.0
-        self.speed_cost_gain = 0.5
-        self.obstacle_cost_gain = 1.5
-        self.robot_stuck_flag_cons = 0.01  # constant to prevent robot stucked
-
-        # # robot parameter
-        # self.max_speed = 0.5  # [m/s]
-        # self.min_speed = -0.1  # [m/s]
-        # self.max_yaw_rate = 5.0 * math.pi / 180.0  # [rad/s]
-        # self.max_accel = 0.1  # [m/ss]
-        # self.max_delta_yaw_rate = 1.0 * math.pi / 180.0  # [rad/ss]
-        # self.v_resolution = 0.01  # [m/s]
-        # self.yaw_rate_resolution = 0.1 * math.pi / 180.0  # [rad/s]
-        # self.dt = 0.1  # [s] Time tick for motion prediction
-        # self.predict_time = 2.0  # [s]
-        # self.to_goal_cost_gain = 0.15
-        # self.speed_cost_gain = 1.0
-        # self.obstacle_cost_gain = 1.0
-        # self.robot_stuck_flag_cons = 0.001  # constant to prevent robot stucked
+        self.speed_cost_gain = 1.0
+        self.obstacle_cost_gain = 1.0
+        self.robot_stuck_flag_cons = 0.001  # constant to prevent robot stucked
 
         # if robot_type == RobotType.circle
         # Also used to check if goal is reached in both types
@@ -86,6 +86,7 @@ class DWAController(Node):
         ori = msg.pose.pose.orientation
         v = msg.twist.twist.linear.x
         w = msg.twist.twist.angular.z
+        # self.get_logger().info(f"v: {v}, w: {w}")
         _, _, yaw = euler_from_quaternion([ori.x, ori.y, ori.z, ori.w])
         self.pose = np.array([pos.x, pos.y, yaw])
         self.state = np.array([pos.x, pos.y, yaw, v, w])
@@ -147,11 +148,12 @@ class DWAController(Node):
         # while True:
         u, trajectory = self.dwa_control(self.state, self.target)
         self.publish_path(trajectory[:, :2])
-        # self.get_logger().info(f"Best_u: [{u[0]:.3f}, {u[1]:.3f}] | State: {np.round(self.state, 3)}")
-        self.get_logger().info(f"state: {self.state}")
+        # self.get_logger().info(f"Best_u: [{u[0]:.2f}, {u[1]:.2f}] | Trajectory: {np.round(trajectory[-1], 2)}")
+        # self.get_logger().info(f"state: {self.state}")
         cmd = Twist()
         cmd.linear.x = u[0]
         cmd.angular.z = u[1]
+        self.get_logger().info(f"Sending cmd: x = {u[0]}, z = {u[1]}")
         self.pub_cmd.publish(cmd)
 
     def dwa_control(self, x, goal):
@@ -185,7 +187,8 @@ class DWAController(Node):
         dw = [max(Vs[0], Vd[0]), min(Vs[1], Vd[1]),
             max(Vs[2], Vd[2]), min(Vs[3], Vd[3])]
 
-        # self.get_logger().info(f"dw: {dw}")
+        # self.get_logger().info(f"dw: {dw}, x[3]: {x[3]}")
+        self.get_logger().info(f"current v: {x[3]}")
         return dw
 
 
@@ -222,7 +225,9 @@ class DWAController(Node):
                 trajectory = self.predict_trajectory(x_init, v, y)
                 # calc cost
                 to_goal_cost = self.to_goal_cost_gain * self.calc_to_goal_cost(trajectory, goal)
+                # self.get_logger().info(f"max speed: {self.max_speed}, current speed: {trajectory[-1, 3]}")
                 speed_cost = self.speed_cost_gain * (self.max_speed - trajectory[-1, 3])
+                # self.get_logger().info(f"speed cost: {speed_cost}")
                 ob_cost = self.obstacle_cost_gain * self.calc_obstacle_cost(trajectory)
 
                 final_cost = to_goal_cost + speed_cost + ob_cost
@@ -272,7 +277,7 @@ class DWAController(Node):
     def publish_path(self, traj):
         path_msg = Path()
         path_msg.header.stamp = self.get_clock().now().to_msg()
-        path_msg.header.frame_id = 'base_footprint'  # Adjust if you're in another frame
+        path_msg.header.frame_id = 'odom'  # Adjust if you're in another frame
 
         for i in range(traj.shape[0]):
             pose = PoseStamped()

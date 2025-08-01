@@ -4,7 +4,7 @@ import math
 from scipy.interpolate import interp1d
 
 class HybridAStarPlanner:
-    def __init__(self, occ_grid, resolution, origin, logger, robot_radius=0.3):
+    def __init__(self, occ_grid, resolution, origin, logger, robot_radius=0.4):
         self.grid = occ_grid
         self.res = resolution
         self.origin = origin
@@ -14,7 +14,7 @@ class HybridAStarPlanner:
 
         self.steering_angles = [-0.6, -0.3, 0.0, 0.3, 0.6]  # radians
         # self.steering_angles = [-2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5]  # radians
-        self.step_size = 0.2  # meters
+        self.step_size = 0.3  # meters
         self.angle_res = np.deg2rad(30)
         self.num_angles = int(2 * np.pi / self.angle_res)
 
@@ -212,9 +212,9 @@ class HybridAStarPlanner:
                 path.pop(0)  # remove start state if needed
                 path_xy = [(x, y) for x, y, theta in path]
                 self.logger.info(f"Length of path: {len(path_xy)}")
-                if len(path_xy) < 5:
-                    path_xy = self.densify_path(np.array(path_xy))
-                    self.logger.info(f"Length of Densified path: {len(path_xy)}")
+                # if len(path_xy) < 5 and len(path_xy):
+                #     path_xy = self.densify_path(np.array(path_xy))
+                #     self.logger.info(f"Length of Densified path: {len(path_xy)}")
                 return path_xy
 
             # Limit expansion to local window

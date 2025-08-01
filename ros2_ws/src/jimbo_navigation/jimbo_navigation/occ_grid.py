@@ -92,7 +92,7 @@ class ScanToOccupancyGrid(Node):
         self.occupancy_grid.header.stamp = self.get_clock().now().to_msg()
         self.pub.publish(self.occupancy_grid)
 
-        self.grid = self.inflate_obstacles(self.grid, int(0.05 / self.resolution)) * 100
+        self.grid = self.inflate_obstacles(self.grid, int(0.1 / self.resolution)) * 100
         self.occupancy_grid.data = self.grid.flatten().tolist()
         self.occupancy_grid.header.stamp = self.get_clock().now().to_msg()
         self.inflated_pub.publish(self.occupancy_grid)

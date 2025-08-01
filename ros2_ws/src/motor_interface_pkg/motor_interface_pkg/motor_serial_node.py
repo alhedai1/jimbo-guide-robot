@@ -21,7 +21,7 @@ class MotorSerialNode(Node):
         self.declare_parameter('port', '/dev/motor_usb')
         self.declare_parameter('baudrate', 115200)
         self.declare_parameter('wheel_radius', 0.0635)
-        self.declare_parameter('wheel_base', 0.3) # Distance between left and right wheels
+        self.declare_parameter('wheel_base', 0.6) # Distance between left and right wheels
 
         # Get parameters
         self.port = self.get_parameter('port').get_parameter_value().string_value
@@ -42,9 +42,11 @@ class MotorSerialNode(Node):
         self.prev_error_left = 0.0
         self.prev_error_right = 0.0
 
-        self.Kp = 0.5
-        self.Ki = 0.0
-        self.Kd = 0.01
+        # with these gains, dwa kinda works (very slow)
+        # for bso_hfc, only kp = 1.0 was working
+        self.Kp = 0.1
+        self.Ki = 0.01
+        self.Kd = 0.0
 
         self.dt = 0.05 # 20 hz
 
@@ -77,7 +79,7 @@ class MotorSerialNode(Node):
 
     # read Twist command and send to arduino
     def cmd_callback(self, msg: Twist):
-        # self.get_logger().info(f"Received cmd_vel: {msg}")
+        # self.get_logger().info(f"Received cmd_vel: x = {msg.linear.x}, z = {msg.angular.z}")
         linear = msg.linear.x
         angular = msg.angular.z
 
@@ -86,8 +88,8 @@ class MotorSerialNode(Node):
         a_rpm = angular * self.wheel_base * 60 / (2 * math.pi * self.wheel_radius)
 
         # 왼쪽 바퀴의 부호 반전
-        left_rpm = -int(v_rpm - a_rpm / 2)
-        right_rpm = int(v_rpm + a_rpm / 2)
+        left_rpm = -(v_rpm - a_rpm / 2)
+        right_rpm = (v_rpm + a_rpm / 2)
 
         # # write to motors directly
         # self.client.write_register(address=0x2088, value=left_rpm & 0xFFFF, device_id=self.unit_id)
@@ -102,10 +104,10 @@ class MotorSerialNode(Node):
     # read MotorRPM command and send to arduino
     def rpm_callback(self, msg: MotorRPM):
         # 왼쪽 RPM 부호 반전
-        left_rpm = -int(msg.left_rpm)
-        right_rpm = int(msg.right_rpm)
-        self.client.write_register(address=0x2088, value=left_rpm & 0xFFFF, device_id=self.unit_id)
-        self.client.write_register(address=0x2089, value=right_rpm & 0xFFFF, device_id=self.unit_id)
+        left_rpm = -round(msg.left_rpm)
+        right_rpm = round(msg.right_rpm)
+        self.target_rpm_left = left_rpm
+        self.target_rpm_right = right_rpm
         # cmd = f"R{left_rpm},{right_rpm}\n"  #cccc
         # self.get_logger().info(f"Manual RPM Command: {cmd.strip()}")
         # self.ser.write(cmd.encode())
@@ -124,8 +126,8 @@ class MotorSerialNode(Node):
                 actual_rpm_left -= 65536
             if actual_rpm_right > 32767:
                 actual_rpm_right -= 65536
-            actual_rpm_left = int(actual_rpm_left * 0.1)
-            actual_rpm_right = int(actual_rpm_right * 0.1)
+            actual_rpm_left = (actual_rpm_left * 0.1)
+            actual_rpm_right = (actual_rpm_right * 0.1)
             # self.get_logger().info(f"actual left: {actual_rpm_left}, actual right: {actual_rpm_right}")
             
             error_left = self.target_rpm_left - actual_rpm_left
@@ -140,17 +142,23 @@ class MotorSerialNode(Node):
             output_right = self.Kp * error_right + self.Ki * self.integral_right + self.Kd * derivative_right
             self.prev_error_right = error_right
 
-            output_left = max(min(int(output_left), 300), -300)
-            output_right = max((min(int(output_right), 300), -300))
-            # self.get_logger().info(f"left output: {output_left}, right output: {output_right}")
+            output_left = max(min((output_left), 300), -300)
+            output_right = max((min((output_right), 300), -300))
+            # self.get_logger().info(f"output: ({output_left}, {output_right}), actual: ({actual_rpm_left}, {actual_rpm_right})")
 
-            self.client.write_register(address=0x2088, value=output_left & 0xFFFF, device_id=self.unit_id)
-            self.client.write_register(address=0x2089, value=output_right & 0xFFFF, device_id=self.unit_id)
+            # deadband (no correction)
+            if abs(error_left) < 0.1:
+                output_left = 0.0
+            if abs(error_right) < 0.1:
+                output_right = 0.0
+
+            self.client.write_register(address=0x2088, value=round(output_left) & 0xFFFF, device_id=self.unit_id)
+            self.client.write_register(address=0x2089, value=round(output_right) & 0xFFFF, device_id=self.unit_id)
 
             if self.odom_count > 30:
-                self.publish_odom(actual_rpm_left, actual_rpm_right)
+                self.publish_odom(round(actual_rpm_left), round(actual_rpm_right))
             self.odom_count += 1
-            self.publish_motor_rpm(actual_rpm_left, actual_rpm_right)
+            self.publish_motor_rpm(round(actual_rpm_left), round(actual_rpm_right))
     
         except UnicodeDecodeError:
             return
@@ -159,8 +167,8 @@ class MotorSerialNode(Node):
         #     try:
         #         data = line[2:]
         #         left_rpm_str, right_rpm_str = data.split(",")
-        #         left_rpm = int(left_rpm_str)
-        #         right_rpm = int(right_rpm_str)
+        #         left_rpm = round(left_rpm_str)
+        #         right_rpm = round(right_rpm_str)
         #         self.publish_odom(left_rpm, right_rpm)
         #         self.publish_motor_rpm(left_rpm, right_rpm)
         #     except ValueError:
