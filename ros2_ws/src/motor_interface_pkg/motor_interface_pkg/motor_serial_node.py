@@ -44,8 +44,8 @@ class MotorSerialNode(Node):
 
         # with these gains, dwa kinda works (very slow, passes the goal and keeps going though)
         # for bso_hfc, only kp = 1.0 was working
-        self.Kp = 0.1
-        self.Ki = 0.01
+        self.Kp = 1.0
+        self.Ki = 0.0
         self.Kd = 0.0
 
         self.dt = 0.05 # 20 hz
@@ -64,7 +64,7 @@ class MotorSerialNode(Node):
         # ROS interfaces
         self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
         self.rpm_pub = self.create_publisher(MotorRPM, 'motor_rpm', 10)
-        self.cmd_sub = self.create_subscription(Twist, 'cmd_vel', self.cmd_callback, 10)
+        self.cmd_sub = self.create_subscription(Twist, 'cmd_vel_nav', self.cmd_callback, 10)
         self.rpm_cmd_sub = self.create_subscription(MotorRPM, 'motor_rpm_cmd', self.rpm_callback, 10)
         self.tf_broadcaster = TransformBroadcaster(self)
 
@@ -91,16 +91,14 @@ class MotorSerialNode(Node):
         left_rpm = -(v_rpm - a_rpm / 2)
         right_rpm = (v_rpm + a_rpm / 2)
 
-        # # write to motors directly
-        # self.client.write_register(address=0x2088, value=left_rpm & 0xFFFF, device_id=self.unit_id)
-        # self.client.write_register(address=0x2089, value=right_rpm & 0xFFFF, device_id=self.unit_id)
+        # write to motors directly
+        self.client.write_register(address=0x2088, value=round(left_rpm) & 0xFFFF, device_id=self.unit_id)
+        self.client.write_register(address=0x2089, value=round(right_rpm) & 0xFFFF, device_id=self.unit_id)
 
-        self.target_rpm_left = left_rpm
-        self.target_rpm_right = right_rpm
+        # self.target_rpm_left = left_rpm
+        # self.target_rpm_right = right_rpm
         # self.get_logger().info(f"target rpm: left = {self.target_rpm_left}, right = {self.target_rpm_right}")
         
-        ### Add PID CONTROL
-
     # read MotorRPM command and send to arduino
     def rpm_callback(self, msg: MotorRPM):
         # 왼쪽 RPM 부호 반전
@@ -130,34 +128,34 @@ class MotorSerialNode(Node):
             actual_rpm_right = (actual_rpm_right * 0.1)
             # self.get_logger().info(f"actual left: {actual_rpm_left}, actual right: {actual_rpm_right}")
             
-            error_left = self.target_rpm_left - actual_rpm_left
-            self.integral_left += error_left *self.dt
-            derivative_left = (error_left - self.prev_error_left) / self.dt
-            output_left = self.Kp * error_left + self.Ki * self.integral_left + self.Kd * derivative_left
-            self.prev_error_left = error_left
+            # error_left = self.target_rpm_left - actual_rpm_left
+            # self.integral_left += error_left *self.dt
+            # derivative_left = (error_left - self.prev_error_left) / self.dt
+            # output_left = self.Kp * error_left + self.Ki * self.integral_left + self.Kd * derivative_left
+            # self.prev_error_left = error_left
 
-            error_right = self.target_rpm_right - actual_rpm_right
-            self.integral_right += error_right * self.dt
-            derivative_right = (error_right - self.prev_error_right) / self.dt
-            output_right = self.Kp * error_right + self.Ki * self.integral_right + self.Kd * derivative_right
-            self.prev_error_right = error_right
+            # error_right = self.target_rpm_right - actual_rpm_right
+            # self.integral_right += error_right * self.dt
+            # derivative_right = (error_right - self.prev_error_right) / self.dt
+            # output_right = self.Kp * error_right + self.Ki * self.integral_right + self.Kd * derivative_right
+            # self.prev_error_right = error_right
 
-            output_left = max(min((output_left), 300), -300)
-            output_right = max((min((output_right), 300), -300))
-            # self.get_logger().info(f"output: ({output_left}, {output_right}), actual: ({actual_rpm_left}, {actual_rpm_right})")
+            # output_left = max(min((output_left), 300), -300)
+            # output_right = max((min((output_right), 300), -300))
+            # # self.get_logger().info(f"output: ({output_left}, {output_right}), actual: ({actual_rpm_left}, {actual_rpm_right})")
 
-            # deadband (no correction)
-            if abs(error_left) < 0.1:
-                output_left = 0.0
-            if abs(error_right) < 0.1:
-                output_right = 0.0
+            # # deadband (no correction)
+            # if abs(error_left) < 0.1:
+            #     output_left = 0.0
+            # if abs(error_right) < 0.1:
+            #     output_right = 0.0
 
-            self.client.write_register(address=0x2088, value=round(output_left) & 0xFFFF, device_id=self.unit_id)
-            self.client.write_register(address=0x2089, value=round(output_right) & 0xFFFF, device_id=self.unit_id)
+            # self.client.write_register(address=0x2088, value=round(output_left) & 0xFFFF, device_id=self.unit_id)
+            # self.client.write_register(address=0x2089, value=round(output_right) & 0xFFFF, device_id=self.unit_id)
 
-            if self.odom_count > 30:
-                self.publish_odom(round(actual_rpm_left), round(actual_rpm_right))
-            self.odom_count += 1
+            # if self.odom_count > 30:
+            self.publish_odom(round(actual_rpm_left), round(actual_rpm_right))
+            # self.odom_count += 1
             self.publish_motor_rpm(round(actual_rpm_left), round(actual_rpm_right))
     
         except UnicodeDecodeError:

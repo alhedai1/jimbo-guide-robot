@@ -70,12 +70,12 @@ def generate_launch_description():
         description='log level')
 
     lifecycle_nodes = ['controller_server',
-                    #    'smoother_server',
+                       'smoother_server',
                        'planner_server',
                        'behavior_server',
                        'bt_navigator',
-                    #    'waypoint_follower',
-                    #    'velocity_smoother',
+                       'waypoint_follower',
+                       'velocity_smoother',
                     #    'map_server',
                     #    'amcl'
                        ]

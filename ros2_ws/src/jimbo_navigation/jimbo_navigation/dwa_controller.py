@@ -16,30 +16,30 @@ class DWAController(Node):
         super().__init__('dwa_controller')
 
         # # robot parameter
-        # self.max_speed = 5.0  # [m/s]
-        # self.min_speed = -0.5  # [m/s]
+        # self.max_speed = 0.5  # [m/s]
+        # self.min_speed = 0.0  # [m/s]
         # self.max_yaw_rate = 10.0 * math.pi / 180.0  # [rad/s]
-        # self.max_accel = 2.0  # [m/ss]
+        # self.max_accel = 0.1  # [m/ss]
         # self.max_delta_yaw_rate = 10.0 * math.pi / 180.0  # [rad/ss]
         # self.v_resolution = 0.01  # [m/s]
         # self.yaw_rate_resolution = 0.1 * math.pi / 180.0  # [rad/s]
         # self.dt = 0.1  # [s] Time tick for motion prediction
-        # self.predict_time = 3.0  # [s]
-        # self.to_goal_cost_gain = 1.0
-        # self.speed_cost_gain = 5.0
+        # self.predict_time = 2.0  # [s]
+        # self.to_goal_cost_gain = 1.5
+        # self.speed_cost_gain = 1.0
         # self.obstacle_cost_gain = 1.0
         # self.robot_stuck_flag_cons = 0.01  # constant to prevent robot stucked
 
-        # # robot parameter
-        self.max_speed = 10.0  # [m/s]
+        # robot parameter
+        self.max_speed = 1.0  # [m/s]
         self.min_speed = 0.0  # [m/s]
-        self.max_yaw_rate = 10.0 * math.pi / 180.0  # [rad/s]
-        self.max_accel = 1.0  # [m/ss]
-        self.max_delta_yaw_rate = 10.0 * math.pi / 180.0  # [rad/ss]
+        self.max_yaw_rate = 40.0 * math.pi / 180.0  # [rad/s]
+        self.max_accel = 0.2  # [m/ss]
+        self.max_delta_yaw_rate = 40.0 * math.pi / 180.0  # [rad/ss]
         self.v_resolution = 0.01  # [m/s]
-        self.yaw_rate_resolution = 0.5 * math.pi / 180.0  # [rad/s]
+        self.yaw_rate_resolution = 0.1 * math.pi / 180.0  # [rad/s]
         self.dt = 0.1  # [s] Time tick for motion prediction
-        self.predict_time = 3.0  # [s]
+        self.predict_time = 1.0  # [s]
         self.to_goal_cost_gain = 1.0
         self.speed_cost_gain = 1.0
         self.obstacle_cost_gain = 1.0
@@ -55,7 +55,8 @@ class DWAController(Node):
         # obstacles [x(m) y(m), ....]
         # self.ob = np.array([[-1, -1],
 
-        self.ob = None
+        # self.ob = None
+        self.ob = np.array([[1, 1]])
 
         self.pose = None
         self.state = None
@@ -135,7 +136,7 @@ class DWAController(Node):
         # if self.state is not None:
         #     self.get_logger().info(f"State: {np.round(self.state, 3)}")
 
-        if self.state is None or self.target is None or self.occ_grid is None:
+        if self.state is None or self.target is None:
             return
 
         if not self.tracking:
@@ -146,14 +147,17 @@ class DWAController(Node):
             self.tracking = True
 
         # while True:
-        u, trajectory = self.dwa_control(self.state, self.target)
-        self.publish_path(trajectory[:, :2])
+        if self.is_goal_reached(self.state, self.target):
+            u = [0.0, 0.0]
+        else:
+            u, trajectory = self.dwa_control(self.state, self.target)
+            self.publish_path(trajectory[:, :2])
         # self.get_logger().info(f"Best_u: [{u[0]:.2f}, {u[1]:.2f}] | Trajectory: {np.round(trajectory[-1], 2)}")
         # self.get_logger().info(f"state: {self.state}")
         cmd = Twist()
         cmd.linear.x = u[0]
         cmd.angular.z = u[1]
-        self.get_logger().info(f"Sending cmd: x = {u[0]}, z = {u[1]}")
+        # self.get_logger().info(f"Sending cmd: x = {u[0]}, z = {u[1]}")
         self.pub_cmd.publish(cmd)
 
     def dwa_control(self, x, goal):
@@ -188,7 +192,7 @@ class DWAController(Node):
             max(Vs[2], Vd[2]), min(Vs[3], Vd[3])]
 
         # self.get_logger().info(f"dw: {dw}, x[3]: {x[3]}")
-        self.get_logger().info(f"current v: {x[3]}")
+        # self.get_logger().info(f"current v: {x[3]}")
         return dw
 
 
@@ -272,7 +276,19 @@ class DWAController(Node):
         cost_angle = error_angle - trajectory[-1, 2]
         cost = abs(math.atan2(math.sin(cost_angle), math.cos(cost_angle)))
 
+        distance_cost = np.hypot(dx, dy)
+        cost += distance_cost
+
         return cost
+    
+    def is_goal_reached(self, x, goal, position_tolerance=0.2, angle_tolerance=0.2):
+        dx = goal[0] - x[0]
+        dy = goal[1] - x[1]
+        distance = math.hypot(dx, dy)
+        
+        # dtheta = math.atan2(math.sin(goal[2] - x[2]), math.cos(goal[2] - x[2]))
+
+        return distance < position_tolerance
 
     def publish_path(self, traj):
         path_msg = Path()

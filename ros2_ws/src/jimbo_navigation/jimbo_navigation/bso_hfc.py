@@ -83,8 +83,16 @@ class BSOHFCController(Node):
         self.astar = HybridAStarPlanner(self.occ_grid, self.grid_res, self.grid_origin, self.get_logger())
 
         self.obstacles = None
-        # self.dwa = DWAController()
         
+        # velocity controller
+        self.kp_lin = 0.0
+        self.kp_ang = 0.0
+        self.ki_ang = 0.0
+        self.kd_ang = 0.0
+        self.integral_ang = 0.0
+        self.prev_error_ang = 0.0
+        self.max_lin_vel = 0.5 # m/s
+        self.max_ang_vel = 0.5 # rad/s
     
     def capture_callback(self, msg):
         if msg.data:
@@ -396,27 +404,38 @@ class BSOHFCController(Node):
     def follow_point(self, pt):
         dx = pt[0] - self.pose[0]
         dy = pt[1] - self.pose[1]
+        distance = np.hypot(dx, dy)
         angle_to_target = np.arctan2(dy, dx)
         angle_diff = angle_to_target - self.pose[2]
-        angle_diff = np.arctan2(np.sin(angle_diff), np.cos(angle_diff))
-        distance = np.hypot(dx, dy)
+        angle_diff = np.arctan2(np.sin(angle_diff), np.cos(angle_diff)) # normalize angle difference
 
         # self.get_logger().info(f"Angle difference: {np.degrees(angle_diff)}")
         self.get_logger().info(f"Idx: {self.traj_index}, Dist: {distance:.2f}, Angle: {angle_diff:.2f}")
 
-        # Parameters
-        max_lin_vel = 0.5  # m/s
-        max_ang_vel = 0.5  # rad/s
-        angle_gain = 1.0   # angular proportional gain
-        slowdown_angle_thresh = 1.0  # rad
-        min_lin_vel = 0.0
+        # # Parameters
+        # max_lin_vel = 0.5  # m/s
+        # max_ang_vel = 0.5  # rad/s
+        # angle_gain = 1.0   # angular proportional gain
+        # slowdown_angle_thresh = 1.0  # rad
+        # min_lin_vel = 0.0
 
-        # Adjust linear speed based on angle error
-        speed_scale = max(0.0, 1.0 - abs(angle_diff) / slowdown_angle_thresh)
+        # # Adjust linear speed based on angle error
+        # speed_scale = max(0.0, 1.0 - abs(angle_diff) / slowdown_angle_thresh)
+        # cmd = Twist()
+        # cmd.linear.x = max(min_lin_vel, max_lin_vel * speed_scale) if distance > 0.05 else 0.0
+        # cmd.angular.z = np.clip(angle_gain * angle_diff, -max_ang_vel, max_ang_vel)
+
+        # P control for linear vel
+        linear_vel = min(0.1, self.kp_lin * distance)
+        # PID control for angular vel
+        self.integral_ang += angle_diff
+        derivative = (angle_diff - self.prev_error_ang) / 0.05
+        angular_vel = self.kp_ang * angle_diff + self.ki_ang * self.integral_ang + self.kd_ang * derivative
+        self.prev_error_ang = angle_diff
+
         cmd = Twist()
-        cmd.linear.x = max(min_lin_vel, max_lin_vel * speed_scale) if distance > 0.05 else 0.0
-        cmd.angular.z = np.clip(angle_gain * angle_diff, -max_ang_vel, max_ang_vel)
-
+        cmd.linear.x = linear_vel
+        cmd.angular.z = angular_vel
         if abs(angle_diff) > np.pi / 6:
             cmd.linear.x = 0.0
 

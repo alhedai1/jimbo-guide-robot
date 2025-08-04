@@ -1,7 +1,7 @@
 controller_server:
   ros__parameters:
     use_sim_time: False
-    controller_frequency: 20.0
+    controller_frequency: 10.0
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.5
     min_theta_velocity_threshold: 0.001
@@ -78,8 +78,8 @@ local_costmap:
       robot_base_frame: base_footprint
       use_sim_time: False
       rolling_window: True
-      width: 3
-      height: 3
+      width: 5
+      height: 5
       resolution: 0.05
       robot_radius: 0.22
       footprint: "[[0.2, 0.15], [0.2, -0.15], [-0.2, -0.15], [-0.2, 0.15]]"
@@ -104,9 +104,9 @@ local_costmap:
           clearing: True
           marking: True
           data_type: "LaserScan"
-          raytrace_max_range: 3.0
+          raytrace_max_range: 5.0
           raytrace_min_range: 0.0
-          obstacle_max_range: 2.5
+          obstacle_max_range: 5.0
           obstacle_min_range: 0.0
       always_send_full_costmap: True
 
@@ -115,13 +115,16 @@ global_costmap:
     ros__parameters:
       update_frequency: 1.0
       publish_frequency: 1.0
-      global_frame: map
+      global_frame: odom
       robot_base_frame: base_footprint
       use_sim_time: False
       robot_radius: 0.22
+      width: 10
+      height: 10
       resolution: 0.05
-      origin_x: -2.5
-      origin_y: -2.5
+      origin_x: -5.0
+      origin_y: -5.0
+      rolling_window: False
       track_unknown_space: true
       plugins: ["obstacle_layer", "inflation_layer"]
       obstacle_layer:
@@ -197,7 +200,7 @@ behavior_server:
 bt_navigator:
   ros__parameters:
     use_sim_time: False
-    global_frame: map
+    global_frame: odom
     robot_base_frame: base_footprint
     odom_topic: /odom
     bt_loop_duration: 10

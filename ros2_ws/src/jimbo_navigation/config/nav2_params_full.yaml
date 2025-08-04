@@ -188,7 +188,7 @@ local_costmap:
       global_frame: odom
       robot_base_frame: base_footprint
       use_sim_time: True
-      rolling_window: true
+      rolling_window: false
       width: 3
       height: 3
       resolution: 0.05

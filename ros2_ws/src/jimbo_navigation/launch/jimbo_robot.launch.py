@@ -203,7 +203,13 @@ def generate_launch_description():
                 'launch',
                 'navigation.launch.py'
             ])
-        ])
+        ]),
+        launch_arguments={
+            'params_file': os.path.join(
+                get_package_share_directory('jimbo_navigation'),
+                'config',
+                'nav2_params.yaml')
+        }.items()
     )
     
     # Launches full nav2 stack
@@ -287,16 +293,16 @@ def generate_launch_description():
         motor_node,
         robot_description_launch,
         rviz_node,
-        # uwb_launch,
+        uwb_launch,
         lidar_launch,
-        occupancy_node,
+        # occupancy_node,
         # bso_hfc_node,
-        dwa_node,
+        # dwa_node,
         # mpc_node,
         # gazebo_server,
         # gazebo_client,
         # delayed_spawn,
         # realsense_launch,
-        # nav_launch
+        nav_launch,
         # full_nav_launch
     ])

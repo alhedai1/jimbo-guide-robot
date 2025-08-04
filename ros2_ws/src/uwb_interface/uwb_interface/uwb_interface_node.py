@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray, Float32
-from geometry_msgs.msg import PointStamped, TransformStamped
+from geometry_msgs.msg import PointStamped, TransformStamped, PoseStamped
 import serial
 import time
 import numpy as np
@@ -76,6 +76,7 @@ class UWBInterfaceNode(Node):
         self.distances = [0.0] * len(self.tags)
         self.dist_pub = self.create_publisher(Float32MultiArray, 'uwb_distances', 10)
         self.pos_pub = self.create_publisher(PointStamped, 'uwb_filtered_position', 10)
+        self.goal_pub = self.create_publisher(PoseStamped, 'goal_update', 10)
         self.timer = self.create_timer(0.1, self.request_sensor_data)  # 10Hz
 
         # State variables
@@ -166,6 +167,11 @@ class UWBInterfaceNode(Node):
         self.pos_history.append((pos_msg.point.x, pos_msg.point.y))
         pos_msg.point.z = 0.0  # Assuming 2D position
         self.pos_pub.publish(pos_msg)
+        # if self.tracking:
+        #     goal = PoseStamped()
+        #     goal.header = pos_msg.header
+        #     goal.pose.position = pos_msg.point
+        #     self.goal_pub.publish(goal)
 
         # Publish TF of person position relative to robot
         transform = TransformStamped()
