@@ -20,8 +20,8 @@ class MotorSerialNode(Node):
         # Declare parameters
         self.declare_parameter('port', '/dev/motor_usb')
         self.declare_parameter('baudrate', 115200)
-        self.declare_parameter('wheel_radius', 0.0635)
-        self.declare_parameter('wheel_base', 0.6) # Distance between left and right wheels
+        self.declare_parameter('wheel_radius', 0.0635) # change
+        self.declare_parameter('wheel_base', (0.6+0.04)) # Distance between left and right wheels - change
 
         # Get parameters
         self.port = self.get_parameter('port').get_parameter_value().string_value
