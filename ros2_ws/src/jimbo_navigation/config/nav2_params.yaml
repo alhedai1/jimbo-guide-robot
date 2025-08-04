@@ -113,7 +113,7 @@ local_costmap:
 global_costmap:
   global_costmap:
     ros__parameters:
-      update_frequency: 1.0
+      update_frequency: 1.0 # increase this!!!
       publish_frequency: 1.0
       global_frame: odom
       robot_base_frame: base_footprint
