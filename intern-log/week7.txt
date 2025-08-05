@@ -1,0 +1,11 @@
+
+
+## Aug 4
+# Done
+ - attempted navigation with nav2 again
+ - robot moves well from start to goal
+ - use rolling global & local costmaps, cant set goals outside global costmap
+ - use custom behaviour tree
+
+# Issues:
+ - can't update goal by publishing to goal_updated
