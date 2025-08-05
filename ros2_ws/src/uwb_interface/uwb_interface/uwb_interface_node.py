@@ -79,8 +79,6 @@ class UWBInterfaceNode(Node):
         self.distances = [0.0] * len(self.tags)
         self.dist_pub = self.create_publisher(Float32MultiArray, 'uwb_distances', 10)
         self.pos_pub = self.create_publisher(PointStamped, 'uwb_filtered_position', 10)
-        self.goal_pub = self.create_publisher(PoseStamped, 'goal_pose', 10)
-        self.tracking_sub = self.create_subscription(Bool, 'tracking', self.tracking_callback, 10)
         self.timer = self.create_timer(0.1, self.request_sensor_data)  # 10Hz
 
         # State variables
@@ -110,12 +108,6 @@ class UWBInterfaceNode(Node):
 
         self.pos_history = deque(maxlen=100)  # 10 seconds of data at 10Hz
         self.stats_timer = self.create_timer(1.0, self.compute_position_stats)
-
-        self.tracking = False
-    
-    def tracking_callback(self, msg: Bool):
-        if msg.data:
-            self.tracking = True
 
     def request_sensor_data(self):
         # Read from all serial ports with non-blocking approach
@@ -179,15 +171,7 @@ class UWBInterfaceNode(Node):
         self.pos_history.append((pos_msg.point.x, pos_msg.point.y))
         pos_msg.point.z = 0.0  # Assuming 2D position
         self.pos_pub.publish(pos_msg)
-        if self.tracking:
-            self.tracking = False
-            goal = PoseStamped()
-            goal.header.frame_id = pos_msg.header.frame_id
-            goal.header.stamp = rclpy.time.Time().to_msg()
-            goal.pose.position = pos_msg.point
-            goal_transformed = self.tf_buffer.transform(goal, 'odom', timeout=rclpy.duration.Duration(seconds=1.0))
-            self.goal_pub.publish(goal_transformed)
-            self.get_logger().info(f"Sent updated goal.")
+
 
         # Publish TF of person position relative to robot
         transform = TransformStamped()

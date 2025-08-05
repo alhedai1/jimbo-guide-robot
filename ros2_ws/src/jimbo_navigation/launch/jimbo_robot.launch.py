@@ -143,6 +143,20 @@ def generate_launch_description():
         ])
     )
 
+    emergency_stop_node = Node(
+            package='jimbo_navigation',
+            executable='emergency_stop',
+            name='emergency_stop',
+            output='screen'
+        )
+
+    tracking_controller_node = Node(
+            package='jimbo_navigation',
+            executable='tracking_controller',
+            name='tracking_controller',
+            output='screen'
+        )
+
     occupancy_node = Node(
         package='jimbo_navigation',
         executable='occ_grid',
@@ -295,6 +309,8 @@ def generate_launch_description():
         rviz_node,
         uwb_launch,
         lidar_launch,
+        emergency_stop_node,
+        tracking_controller_node,
         # occupancy_node,
         # bso_hfc_node,
         # dwa_node,

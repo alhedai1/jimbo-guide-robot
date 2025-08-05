@@ -35,9 +35,8 @@ setup(
     # tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'safety_monitor = jimbo_navigation.safety_monitor:main',
-            'user_follower = jimbo_navigation.user_follower:main',
-            'user_follower_2 = jimbo_navigation.user_follower_2:main',
+            'emergency_stop = jimbo_navigation.emergency_stop:main',
+            'tracking_controller = jimbo_navigation.tracking_controller:main',
             'tf_test = jimbo_navigation.tf_test:main',
             'bso_hfc = jimbo_navigation.bso_hfc:main',
             'occ_grid = jimbo_navigation.occ_grid:main',

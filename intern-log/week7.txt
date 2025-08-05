@@ -9,3 +9,7 @@
 
 # Issues:
  - can't update goal by publishing to goal_updated
+
+## Aug 5
+# Done
+ - 
