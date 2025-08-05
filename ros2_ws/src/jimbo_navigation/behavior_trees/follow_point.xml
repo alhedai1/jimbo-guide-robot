@@ -2,10 +2,10 @@
   This Behavior Tree follows a dynamic pose to a certain distance
 -->
 
-<root main_tree_to_execute="MainTree">
+<!-- <root main_tree_to_execute="MainTree">
   <BehaviorTree ID="MainTree">
     <PipelineSequence name="NavigateWithReplanning">
-      <RateController hz="0.5">
+      <RateController hz="1.0">
         <Sequence>
           <GoalUpdater input_goal="{goal}" output_goal="{updated_goal}">
             <ComputePathToPose goal="{updated_goal}" path="{path}" planner_id="GridBased"/>
@@ -16,6 +16,30 @@
       <KeepRunningUntilFailure>
         <FollowPath path="{truncated_path}" controller_id="FollowPath"/>
       </KeepRunningUntilFailure>
+    </PipelineSequence>
+  </BehaviorTree>
+</root> -->
+
+
+
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <PipelineSequence name="NavigateWithReplanning">
+      <GoalUpdater input_goal="{goal}" output_goal="{updated_goal}"/>
+      
+      <ReactiveSequence>
+        <RateController hz="1.0">
+          <Inverter>
+            <IsGoalUpdated goal="{goal}" updated_goal="{updated_goal}"/>
+          </Inverter>
+        </RateController>
+
+        <ComputePathToPose goal="{updated_goal}" path="{path}" planner_id="GridBased"/>
+        <TruncatePath distance="1.0" input_path="{path}" output_path="{truncated_path}"/>
+      </ReactiveSequence>
+
+      <FollowPath path="{truncated_path}" controller_id="FollowPath"/>
+
     </PipelineSequence>
   </BehaviorTree>
 </root>

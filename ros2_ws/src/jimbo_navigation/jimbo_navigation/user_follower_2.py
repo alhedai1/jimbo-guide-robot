@@ -14,27 +14,12 @@ class UWBFollower(Node):
     def __init__(self):
         super().__init__('uwb_follower_node')
 
-        self.declare_parameter('robot_radius', 0.2)  # meters
-        self.declare_parameter('max_lin_vel', 0.1)
-        self.declare_parameter('max_ang_vel', 0.3)
-        self.declare_parameter('sim_time', 1.0)  # seconds
-        self.declare_parameter('dt', 0.1)
-
-        self.robot_radius = self.get_parameter('robot_radius').value
-        self.max_lin_vel = self.get_parameter('max_lin_vel').value
-        self.max_ang_vel = self.get_parameter('max_ang_vel').value
-        self.sim_time = self.get_parameter('sim_time').value
-        self.dt = self.get_parameter('dt').value
-
         self.uwb_data = Point()
-        # self.uwb_target = Point(x=1.0, y=0.0, z=0.0)
         self.uwb_target = None
-        self.laser_data = None
         self.track = False
 
         self.subscription1 = self.create_subscription(Point, '/uwb_filtered_position', self.uwb_callback, 10)
         qos = QoSProfile(depth=10, durability=DurabilityPolicy.VOLATILE, reliability=ReliabilityPolicy.BEST_EFFORT)
-        self.subscription2 = self.create_subscription(LaserScan, '/scan', self.lidar_callback, qos)
         self.subscription3 = self.create_subscription(Bool, '/tracking', self.tracking_callback, 10)
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.dist_pub = self.create_publisher(Float32, '/dist', 10)
@@ -49,9 +34,6 @@ class UWBFollower(Node):
     def uwb_callback(self, msg):
         self.uwb_data = msg
         return
-
-    def lidar_callback(self, msg):
-        self.laser_data = msg
     
     def tracking_callback(self, msg):
         if msg.data == True:
@@ -112,32 +94,6 @@ class UWBFollower(Node):
                         best_cmd.angular.z = w
 
         self.cmd_vel_pub.publish(best_cmd)
-
-    def is_trajectory_safe(self, v, w):
-        if v == 0.0 and abs(w) < 1e-3:
-            return False
-
-        angle_min = self.laser_data.angle_min
-        angle_increment = self.laser_data.angle_increment
-        ranges = np.array(self.laser_data.ranges)
-
-        x, y, theta = 0.0, 0.0, 0.0
-        for _ in np.arange(0, self.sim_time, self.dt):
-            # simulate forward
-            x += v * self.dt * math.cos(theta)
-            y += v * self.dt * math.sin(theta)
-            theta += w * self.dt
-
-            # convert to polar
-            r = math.hypot(x, y)
-            a = math.atan2(y, x)
-            idx = int((a - angle_min) / angle_increment)
-
-            if 0 <= idx < len(ranges):
-                if ranges[idx] < r + self.robot_radius:
-                    return False  # too close to obstacle
-
-        return True
 
 def main(args=None):
     rclpy.init(args=args)
