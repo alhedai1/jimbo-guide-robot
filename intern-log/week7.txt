@@ -12,4 +12,10 @@
 
 ## Aug 5
 # Done
- - 
+ - nav2 tracking by publishing to goal_update works
+ - posestamped msg published to goal_update must have valid timestamp
+ - initial goal must be published to goal_pose, while navigating to goal_pose, can update goal by publishing to goal_update
+
+
+## Aug 6
+# 
