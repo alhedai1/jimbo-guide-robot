@@ -210,6 +210,7 @@ def generate_launch_description():
     #     ]
     # )
 
+    # custom nav2 launch (no map_server, amcl)
     nav_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
