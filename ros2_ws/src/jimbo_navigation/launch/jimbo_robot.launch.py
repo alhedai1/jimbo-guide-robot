@@ -272,7 +272,6 @@ def generate_launch_description():
     return LaunchDescription([
         use_sim_time_arg,
         enable_motor_arg,
-        enable_follower_arg,
         enable_rviz_arg,
         # enable_realsense_arg,
         robot_description_launch,
