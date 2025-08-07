@@ -35,36 +35,12 @@ def generate_launch_description():
         default_value='true',
         description='Enable motor control (disable for simulation)'
     )
-
-    enable_safety_arg = DeclareLaunchArgument(
-        'enable_safety',
-        default_value='false',
-        description='Enable safety monitor'
-    )
-    
-    enable_follower_arg = DeclareLaunchArgument(
-        'enable_follower',
-        default_value='true',
-        description='Enable user following behavior'
-    )
-    
-    enable_navigation_arg = DeclareLaunchArgument(
-        'enable_navigation',
-        default_value='true',
-        description='Enable autonomous navigation'
-    )
     
     enable_rviz_arg = DeclareLaunchArgument(
         'enable_rviz',
         default_value='true',
         description='Enable RViz visualization'
     )
-    
-    # map_file_arg = DeclareLaunchArgument(
-    #     'map',
-    #     default_value=[FindPackageShare('jimbo_navigation'), '/maps/generated_map.yaml'],
-    #     description='Path to map file (for navigation)'
-    # )
 
     # nav2_params_file = LaunchConfiguration('params_file')
 
@@ -85,7 +61,7 @@ def generate_launch_description():
         ])
     )
 
-    # RealSense camera launch (conditional)
+    # RealSense camera launch
     realsense_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
@@ -105,7 +81,7 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('enable_realsense'))
     )
     
-    # YDLidar launch (always enabled)
+    # lidar launch 
     lidar_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
@@ -117,17 +93,17 @@ def generate_launch_description():
     )
     
 
-    # Motor interface node (conditional) - start first
+    # Motor interface node
     motor_node = Node(
         package='motor_interface_pkg',
         executable='motor_serial_node',
         name='motor_serial_node',
-        parameters=[{
-            'port': '/dev/motor_usb',
-            'baudrate': 115200,
-            'wheel_radius': 0.0635,
-            'wheel_base': 0.3
-        }],
+        # parameters=[{
+        #     'port': '/dev/motor_usb',
+        #     'baudrate': 115200,
+        #     'wheel_radius': 0.0635,
+        #     'wheel_base': 0.3
+        # }],
         output='screen',
         condition=IfCondition(LaunchConfiguration('enable_motor'))
     )
@@ -181,7 +157,6 @@ def generate_launch_description():
                 #     'max_angular_velocity': 1.0,
                 # }],
                 output='screen',
-                condition=IfCondition(LaunchConfiguration('enable_follower'))
             )
         ]
     )
@@ -227,7 +202,7 @@ def generate_launch_description():
         }.items()
     )
     
-    # Launches full nav2 stack
+    # full nav2 stack
     full_nav_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             FindPackageShare('nav2_bringup'),
@@ -243,7 +218,6 @@ def generate_launch_description():
             ])
         }.items()
     )
-    
     
     # RViz2 for visualization (conditional)
     rviz_node = Node(
@@ -297,12 +271,10 @@ def generate_launch_description():
     
     return LaunchDescription([
         use_sim_time_arg,
-        # enable_realsense_arg,
         enable_motor_arg,
         enable_follower_arg,
-        # enable_navigation_arg,
         enable_rviz_arg,
-        # nav2_params_file_arg,
+        # enable_realsense_arg,
         robot_description_launch,
         rviz_node,
         # motor_node,
