@@ -26,10 +26,14 @@ tag_positions = [
     # ( 0.30,  0.465),  # Front Right
     # (-0.30, -0.465),  # Back Left
     # ( 0.30, -0.465),  # Back Right
-    ( 0.465,  0.30),  # Front Left
-    ( 0.465, -0.30),  # Front Right
-    (-0.465,  0.30),  # Back Left
-    (-0.465, -0.30),  # Back Right
+    # ( 0.465,  0.30),  # Front Left
+    # ( 0.465, -0.30),  # Front Right
+    # (-0.465,  0.30),  # Back Left
+    # (-0.465, -0.30),  # Back Right
+    ( 0.2325,  0.29),  # Front Left
+    ( 0.2325, -0.29),  # Front Right
+    (-0.2325,  0.315),  # Back Left
+    (-0.2325, -0.315),  # Back Right
 ]
 
 class UWBInterfaceNode(Node):

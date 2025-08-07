@@ -11,7 +11,7 @@
   <link name="base_link">
     <visual>
       <geometry>
-        <box size="1.2 0.6 0.2"/>
+        <box size="0.93 0.6 0.1"/>
       </geometry>
       <material name="blue">
         <color rgba="0 0 0.8 1"/>
@@ -19,7 +19,7 @@
     </visual>
     <collision>
       <geometry>
-        <box size="1.2 0.6 0.5"/>
+        <box size="0.93 0.6 0.1"/>
       </geometry>
     </collision>
     <inertial>
@@ -32,7 +32,7 @@
     <visual>
       <origin rpy="1.5708 0 0"/>
       <geometry>
-        <cylinder length="0.04" radius="0.085"/>
+        <cylinder length="0.04" radius="0.0635"/>
       </geometry>
       <material name="black">
         <color rgba="0.1 0.1 0.1 1"/>
@@ -41,7 +41,7 @@
     <collision>
       <origin rpy="1.5708 0 0"/>
       <geometry>
-        <cylinder length="0.04" radius="0.085"/>
+        <cylinder length="0.04" radius="0.0635"/>
       </geometry>
     </collision>
     <inertial>
@@ -54,7 +54,7 @@
     <visual>
       <origin rpy="-1.5708 0 0"/>
       <geometry>
-        <cylinder length="0.04" radius="0.085"/>
+        <cylinder length="0.04" radius="0.0635"/>
       </geometry>
       <material name="black">
         <color rgba="0.1 0.1 0.1 1"/>
@@ -63,7 +63,7 @@
     <collision>
       <origin rpy="-1.5708 0 0"/>
       <geometry>
-        <cylinder length="0.04" radius="0.085"/>
+        <cylinder length="0.04" radius="0.0635"/>
       </geometry>
     </collision>
     <inertial>
@@ -147,21 +147,21 @@
   <joint name="left_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="left_wheel"/>
-    <origin rpy="0 0 0" xyz="-(0.2325+0.16) (0.725/2) -0.1"/>
+    <origin rpy="0 0 0" xyz="0 0.32 -0.05"/>
     <axis xyz="0 1 0"/>
   </joint>
   <!-- Right wheel joint: right of base_link -->
   <joint name="right_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="right_wheel"/>
-    <origin rpy="0 0 0" xyz="-(0.2325+0.16) -(0.725/2) -0.1"/>
+    <origin rpy="0 0 0" xyz="0 -0.32 -0.05"/>
     <axis xyz="0 1 0"/>
   </joint>
   <!-- LiDAR joint: left and above wheels -->
   <joint name="lidar_joint" type="fixed">
     <parent link="base_link"/>
     <child link="robot_lidar_link"/>
-    <origin rpy="0 0 0" xyz="(0.2325+0.39) 0 0.06"/>
+    <origin rpy="0 0 0" xyz="0.435 0 0.06"/>
   </joint>
   <!-- Camera joint: left of lidar and below base -->
   <!-- <joint name="camera_joint" type="fixed">
