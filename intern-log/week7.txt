@@ -27,3 +27,7 @@
 ## Aug 7
 # Plan
  - test actual robot
+# Done
+ - could not test robot due to power issue
+ - modified urdf for actual robot
+ 
