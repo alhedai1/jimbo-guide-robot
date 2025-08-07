@@ -24,7 +24,6 @@ def read_sensor_data(serial_port):
             if decoded_line:
                 print(f"Received: {decoded_line}")
         except KeyboardInterrupt:
-            print("Interrupted by user.")
             break
         except Exception as e:
             print(f"Error reading from serial: {e}")
@@ -34,10 +33,10 @@ def read_sensor_data(serial_port):
 
 def main():
     serial_port = serial.Serial('/dev/uwb_front_left', baudrate=115200, timeout=1)
-    time.sleep(2)  # Allow time for the serial connection to establish
+    time.sleep(2)
 
     global tag
-    tag = serial_port  # For compatibility with request_sensor_data
+    tag = serial_port
 
     request_sensor_data()
 
