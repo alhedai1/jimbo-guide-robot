@@ -22,6 +22,7 @@ class UWB_UKF:
         # Covariances
         self.ukf.P *= 1.0  # Initial uncertainty
         self.ukf.R = np.diag([0.05, 0.05, 0.05, 0.05])  # Measurement noise (increase if its jumpy/too reactive)
+        # self.ukf.R = np.diag([0.01, 0.01, 0.01, 0.01])
         self.ukf.Q = np.diag([0.001, 0.001, 0.1, 0.1])   # Process noise (increase if its too slow to follow)
 
         # self.ukf.Q = 
