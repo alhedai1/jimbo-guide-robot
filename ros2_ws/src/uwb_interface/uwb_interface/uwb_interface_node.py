@@ -144,15 +144,16 @@ class UWBInterfaceNode(Node):
         self.dist_pub.publish(dist_msg)
         self.dist_history.append(self.distances)
 
-        # estimate target position from 4 distances using ukf
+        # Estimate position (multilateration, no filtering)
+        unfiltered_pos = self.estimate_tag_position(tags, self.distances)
+
+        # Estimate target position from 4 distances using ukf
         now = self.get_clock().now()
         dt = now - self.ukf_last_time
         self.ukf_last_time = now
         self.ukf_tracker.update(self.distances, dt)
+        ukf_filtered_pos = self.ukf_tracker.get_state()[:2]
         
-        # # Estimate position
-        # pos = self.estimate_tag_position(tags, self.distances)
-
         # # if self.user_position is not None:
         # #     dist = np.linalg.norm(np.array(pos) - np.array(self.user_position))
         # #     if dist > 0.5:  # Rejection threshold in meters (tune this)
@@ -166,16 +167,16 @@ class UWBInterfaceNode(Node):
         # # kalman filtering
         # kalman_pos = self.kalman_update(np.array(pos))
 
-        filtered_pos = self.ukf_tracker.get_state()[:2]
+        
         # moving average w/ 10 readings
-        self.position_buffer.append(filtered_pos)
-        filtered_pos = np.mean(self.position_buffer, axis=0)
+        self.position_buffer.append(ukf_filtered_pos)
+        ukf_filtered_pos = np.mean(self.position_buffer, axis=0)
         
         pos_msg = PointStamped()
         pos_msg.header.stamp = self.get_clock().now().to_msg()
         pos_msg.header.frame_id = 'base_footprint'
-        pos_msg.point.x = filtered_pos[1]
-        pos_msg.point.y = -filtered_pos[0] 
+        pos_msg.point.x = ukf_filtered_pos[1]
+        pos_msg.point.y = -ukf_filtered_pos[0]
         self.pos_history.append((pos_msg.point.x, pos_msg.point.y))
         pos_msg.point.z = 0.0  # Assuming 2D position
         self.pos_pub.publish(pos_msg)

@@ -16,13 +16,15 @@ class UWB_UKF:
                        hx=self.hx,
                        points=self.points)
 
-        # Initial state estimate
+        # Initial state estimate ([x, y, vx, vy])
         self.ukf.x = np.array([0, 0, 0, 0])
 
         # Covariances
         self.ukf.P *= 1.0  # Initial uncertainty
         self.ukf.R = np.diag([0.05, 0.05, 0.05, 0.05])  # Measurement noise (increase if its jumpy/too reactive)
         self.ukf.Q = np.diag([0.001, 0.001, 0.1, 0.1])   # Process noise (increase if its too slow to follow)
+
+        # self.ukf.Q = 
 
     def fx(self, x, dt):
         """State transition function for constant velocity model"""

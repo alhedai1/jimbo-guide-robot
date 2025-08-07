@@ -18,4 +18,12 @@
 
 
 ## Aug 6
-# 
+# Done
+ - tested ukf filter as alternative to basic kalman filter
+ - using it with moving average filter (10 samples)
+ - needs better tuning for Q and R (shouldn't need moving average filter)
+
+
+## Aug 7
+# Plan
+ - test actual robot
