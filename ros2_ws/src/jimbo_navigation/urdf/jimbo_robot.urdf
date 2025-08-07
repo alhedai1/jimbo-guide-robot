@@ -161,7 +161,7 @@
   <joint name="lidar_joint" type="fixed">
     <parent link="base_link"/>
     <child link="robot_lidar_link"/>
-    <origin rpy="0 0 0" xyz="(0.2325+0.39) 0 0.06"/>
+    <origin rpy="0 0 0" xyz="(0.2325+0.39) 0 0.11"/>
   </joint>
   <!-- Camera joint: left of lidar and below base -->
   <!-- <joint name="camera_joint" type="fixed">
