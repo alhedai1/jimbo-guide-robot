@@ -30,4 +30,9 @@
 # Done
  - could not test robot due to power issue
  - modified urdf for actual robot
- 
+
+
+## Aug 8
+# Plan
+ - discuss code with Mr. Lee
+ - try to integrate depth camera (nav2 voxel layer)
