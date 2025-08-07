@@ -20,12 +20,16 @@ import csv
 # anchor - 1 nmi
 # network id - nis 1234 (both tags and anchor)
 
-# tag positions:
-tags = [
-    (-0.30,  0.465),  # Front Left
-    ( 0.30,  0.465),  # Front Right
-    (-0.30, -0.465),  # Back Left
-    ( 0.30, -0.465),  # Back Right
+# tag positions: (+x is forward, +y is left)
+tag_positions = [
+    # (-0.30,  0.465),  # Front Left
+    # ( 0.30,  0.465),  # Front Right
+    # (-0.30, -0.465),  # Back Left
+    # ( 0.30, -0.465),  # Back Right
+    ( 0.465,  0.30),  # Front Left
+    ( 0.465, -0.30),  # Front Right
+    (-0.465,  0.30),  # Back Left
+    (-0.465, -0.30),  # Back Right
 ]
 
 class UWBInterfaceNode(Node):
@@ -38,7 +42,7 @@ class UWBInterfaceNode(Node):
         tag_ports = self.get_parameter('tag_ports').get_parameter_value().string_array_value
         baudrate = self.get_parameter('baudrate').get_parameter_value().integer_value
 
-        self.tags = []
+        self.tags = [] # list of Serial objects
         for i, port in enumerate(tag_ports):
             try:
                 tag = serial.Serial(port, baudrate=baudrate, timeout=1)
@@ -108,7 +112,7 @@ class UWBInterfaceNode(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         
-        self.ukf_tracker = UWB_UKF(tags)
+        self.ukf_tracker = UWB_UKF(tag_positions)
         self.ukf_last_time = self.get_clock().now()
         self.record = False
 
@@ -145,7 +149,7 @@ class UWBInterfaceNode(Node):
         self.dist_history.append(self.distances)
 
         # Estimate position (multilateration, no filtering)
-        unfiltered_pos = self.estimate_tag_position(tags, self.distances)
+        unfiltered_pos = self.estimate_tag_position(tag_positions, self.distances)
 
         # Estimate target position from 4 distances using ukf
         now = self.get_clock().now()
@@ -175,10 +179,9 @@ class UWBInterfaceNode(Node):
         pos_msg = PointStamped()
         pos_msg.header.stamp = self.get_clock().now().to_msg()
         pos_msg.header.frame_id = 'base_footprint'
-        pos_msg.point.x = ukf_filtered_pos[1]
-        pos_msg.point.y = -ukf_filtered_pos[0]
+        pos_msg.point.x = ukf_filtered_pos[0]
+        pos_msg.point.y = ukf_filtered_pos[1]
         self.pos_history.append((pos_msg.point.x, pos_msg.point.y))
-        pos_msg.point.z = 0.0  # Assuming 2D position
         self.pos_pub.publish(pos_msg)
 
         # Publish TF of person position relative to robot
@@ -196,7 +199,6 @@ class UWBInterfaceNode(Node):
                 parts = line.split(',')
                 # addr = parts[3]
                 dist = float(parts[7])
-                # if 0.2 < dist < 10.0:  # sanity check (adjust as needed)
                 self.distances[tag_index] = dist
                 # qf = int(parts[2].split(':')[1].strip())
             except Exception as e:

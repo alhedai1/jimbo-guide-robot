@@ -96,11 +96,11 @@ def generate_launch_description():
         ]),
         launch_arguments={
             'enable_depth': 'true',
-            'enable_pointcloud': 'true',
-            'enable_rgb': 'true',
-            'depth_width': '640',
-            'depth_height': '480',
-            'depth_fps': '30'
+            'pointcloud.enable': 'true',
+            'enable_rgbd': 'true',
+            # 'depth_width': '640',
+            # 'depth_height': '480',
+            # 'depth_fps': '30'
         }.items(),
         condition=IfCondition(LaunchConfiguration('enable_realsense'))
     )
@@ -299,11 +299,9 @@ def generate_launch_description():
         use_sim_time_arg,
         # enable_realsense_arg,
         enable_motor_arg,
-        # # enable_safety_arg,
         enable_follower_arg,
         # enable_navigation_arg,
         enable_rviz_arg,
-        # map_file_arg,
         # nav2_params_file_arg,
         motor_node,
         robot_description_launch,
@@ -312,14 +310,6 @@ def generate_launch_description():
         lidar_launch,
         emergency_stop_node,
         tracking_controller_node,
-        # occupancy_node,
-        # bso_hfc_node,
-        # dwa_node,
-        # mpc_node,
-        # gazebo_server,
-        # gazebo_client,
-        # delayed_spawn,
         # realsense_launch,
         nav_launch,
-        # full_nav_launch
     ])
