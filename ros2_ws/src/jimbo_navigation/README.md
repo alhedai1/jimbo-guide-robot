@@ -7,11 +7,10 @@ A ROS2-based autonomous guide robot designed to assist blind and visually impair
 - **Chassis**: 2-wheel differential drive robot
 - **Wheels**: 6.35cm radius, 30cm wheel base
 - **Sensors**:
-  - RealSense D435i depth camera
-  - YDLidar laser scanner
-  - UWB sensors (planned)
+  - Realsense depth camera
+  - YDLidar 
+  - 4 UWB sensors
 - **Motor Control**: Arduino-based motor controller via serial communication
-- **Processing**: ROS2 Humble on Linux
 
 ## Current Software Components
 
