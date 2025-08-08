@@ -44,7 +44,7 @@ class MotorSerialNode(Node):
         self.prev_error_left = 0.0
         self.prev_error_right = 0.0
 
-        # with these gains, dwa kinda works (very slow, passes the goal and keeps going though)
+        # with these gains, dwa kind of works (very slow, passes the goal and keeps going though)
         # for bso_hfc, only kp = 1.0 was working
         self.Kp = 1.0
         self.Ki = 0.0
