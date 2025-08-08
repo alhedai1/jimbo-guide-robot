@@ -1,0 +1,4 @@
+SUBSYSTEM=="tty", ATTRS{serial}=="000760098957", SYMLINK+="uwb_front_left"
+SUBSYSTEM=="tty", ATTRS{serial}=="000760099115", SYMLINK+="uwb_front_right"
+SUBSYSTEM=="tty", ATTRS{serial}=="000760099011", SYMLINK+="uwb_back_left"
+SUBSYSTEM=="tty", ATTRS{serial}=="000760101279", SYMLINK+="uwb_back_right"

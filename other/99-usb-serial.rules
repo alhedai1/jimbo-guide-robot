@@ -1,0 +1,5 @@
+# SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", KERNELS=="1-2.3", SYMLINK+="lidar"
+SUBSYSTEM=="tty", KERNELS=="1-2.3", SYMLINK+="lidar"
+
+# SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", KERNELS=="1-2.2", SYMLINK+="motor_usb"
+SUBSYSTEM=="tty", KERNELS=="1-2.2", SYMLINK+="motor_usb"
