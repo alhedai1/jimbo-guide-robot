@@ -83,15 +83,28 @@ def generate_launch_description():
         output='screen'
     )
 
-    odom_tf_node = Node(
+    # odom_tf_node = Node(
+    #     package='tf2_ros',
+    #     executable='static_transform_publisher',
+    #     name='odom_tf_publisher',
+    #     arguments=[
+    #         '0', '0', '0',  # x, y, z translation
+    #         '0', '0', '0',  # roll, pitch, yaw rotation
+    #         'odom',   # parent frame (URDF frame)
+    #         'base_footprint'          # child frame
+    #     ],
+    #     output='screen'
+    # )
+
+    uwb_tf_node = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        name='odom_tf_publisher',
+        name='uwb_tf_publisher',
         arguments=[
             '0.3925', '0', '0',  # x, y, z translation
             '0', '0', '0',  # roll, pitch, yaw rotation
-            'odom',   # parent frame (URDF frame)
-            'base_footprint'          # child frame
+            'base_footprint',   # parent frame (URDF frame)
+            'uwb_base'          # child frame
         ],
         output='screen'
     )
@@ -117,6 +130,6 @@ def generate_launch_description():
         joint_state_publisher_node,
         # camera_tf_node,
         lidar_tf_node,
-        odom_tf_node,
-        map_tf_node
+        # odom_tf_node,
+        # map_tf_node
     ]) 
