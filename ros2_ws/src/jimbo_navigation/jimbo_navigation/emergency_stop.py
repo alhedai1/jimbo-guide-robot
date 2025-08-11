@@ -19,7 +19,6 @@ class EmergencyStop(Node):
             self.get_logger().info(f"EMERGENCY STOP!")
 
     def cmd_callback(self, msg):
-        self.get_logger().info(f"Emergency: {self.emergency}")
         if not self.emergency:
             self.cmd_pub.publish(msg)
         else:
