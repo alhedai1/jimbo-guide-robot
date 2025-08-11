@@ -74,7 +74,7 @@ class UWBInterfaceNode(Node):
                     time.sleep(0.5)
                     
                     tag.write(b'lec\r')
-                    time.sleep(0.5)
+                    time.sleep(1)
 
                     self.get_logger().info(f"Initialized UWB device {i}")
                 except Exception as e:
@@ -83,39 +83,23 @@ class UWBInterfaceNode(Node):
         self.distances = [0.0] * len(self.tags)
         self.dist_pub = self.create_publisher(Float32MultiArray, 'uwb_distances', 10)
         self.pos_pub = self.create_publisher(PointStamped, 'uwb_filtered_position', 10)
-        # self.record_sub = self.create_subscription(Bool, 'record', self.record_callback)
         self.timer = self.create_timer(0.1, self.request_sensor_data)  # 10 hz
 
-        # # State variables
-        # self.user_position: Optional[Tuple[float, float]] = None
-        # self.user_heading: Optional[float] = 0.0
-
-        # # Kalman filter state for user position [x, y, vx, vy]
-        # self.kalman_initialized = False
-        # self.kalman_state = np.zeros(4)  # [x, y, vx, vy]
-        # self.kalman_P = np.eye(4)
-        # # self.kalman_Q = np.eye(4) * 0.005   # Lower process noise
-        # # self.kalman_R = np.eye(2) * 0.2     # Higher measurement noise
-        # self.kalman_Q = np.diag([0.01, 0.01, 0.1, 0.1])   # Process noise: lower for position, higher for velocity
-        # self.kalman_R = np.diag([0.5, 0.5])               # Measurement noise: higher to trust UWB less
-
-        # self.kalman_F = np.eye(4)
-        # self.kalman_H = np.zeros((2, 4))
-        # self.kalman_H[0, 0] = 1
-        # self.kalman_H[1, 1] = 1
-        # self.kalman_last_time = self.get_clock().now()
-
+        # buffer for moving average filter
         self.position_buffer = deque(maxlen=10)
 
+        # for debugging (getting avg & stddev)
         self.pos_history = deque(maxlen=10)  # 10 seconds of data at 10Hz
         self.dist_history = deque(maxlen=100)
         self.stats_timer = self.create_timer(1.0, self.compute_position_stats)
         self.dist_stats_timer = self.create_timer(1.0, self.compute_distance_stats)
 
+        # for publishing transform from robot to person
         self.tf_broadcaster = TransformBroadcaster(self)
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         
+        # initialize UKF filter
         self.ukf_tracker = UWB_UKF(tag_positions)
         self.ukf_last_time = self.get_clock().now()
         self.record = False
@@ -148,38 +132,28 @@ class UWBInterfaceNode(Node):
                 except:
                     pass
         
-        # Publish all distances
+        # Publish 4 distances
         dist_msg = Float32MultiArray()
         dist_msg.data = self.distances
-        self.get_logger().info(f"Distances: {self.distances} | Time: {self.get_clock().now().nanoseconds-self.initial}")
+        # self.get_logger().info(f"Distances: {self.distances} | Time: {self.get_clock().now().nanoseconds-self.initial}")
         self.dist_pub.publish(dist_msg)
         self.dist_history.append(self.distances)
 
+        # !! skip until all distances are valid
+        for dist in self.distances:
+            if dist <= 0.0:
+                return
+
         # Estimate position (multilateration, no filtering)
         unfiltered_pos = self.estimate_tag_position(tag_positions, self.distances)
-        self.get_logger().info(f"unfiltered_pos: {unfiltered_pos} | Time: {self.get_clock().now().nanoseconds-self.initial}")
+        # self.get_logger().info(f"unfiltered_pos: {unfiltered_pos} | Time: {self.get_clock().now().nanoseconds-self.initial}")
 
-        # Estimate target position from 4 distances using ukf
+        # Estimate target position from 4 distances using UKF
         now = self.get_clock().now()
         dt = now - self.ukf_last_time
         self.ukf_last_time = now
         self.ukf_tracker.update(self.distances, dt)
         ukf_filtered_pos = self.ukf_tracker.get_state()[:2]
-
-        
-        # # if self.user_position is not None:
-        # #     dist = np.linalg.norm(np.array(pos) - np.array(self.user_position))
-        # #     if dist > 0.5:  # Rejection threshold in meters (tune this)
-        # #         self.get_logger().warn(f"Outlier rejected (jump = {dist:.2f} m)")
-        # #         return  # Skip this cycle
-        
-        # self.user_position = pos
-
-        # # filtered_pos = self.kalman_update(np.array(pos))
-        
-        # # kalman filtering
-        # kalman_pos = self.kalman_update(np.array(pos))
-
         
         # moving average w/ 10 readings
         # self.position_buffer.append(ukf_filtered_pos)
@@ -188,12 +162,12 @@ class UWBInterfaceNode(Node):
         pos_msg = PointStamped()
         pos_msg.header.stamp = self.get_clock().now().to_msg()
         pos_msg.header.frame_id = 'uwb_base'
-        self.get_logger().info(f"ukf_Position: {ukf_filtered_pos[0]}, {ukf_filtered_pos[1]} | Time: {self.get_clock().now().nanoseconds-self.initial}")
+        # self.get_logger().info(f"ukf_Position: {ukf_filtered_pos[0]}, {ukf_filtered_pos[1]} | Time: {self.get_clock().now().nanoseconds-self.initial}")
         pos_msg.point.x = ukf_filtered_pos[0]
         pos_msg.point.y = ukf_filtered_pos[1]
         self.pos_history.append((pos_msg.point.x, pos_msg.point.y))
         # if self.get_clock().now().nanoseconds - self.initial > 8000000000:
-        self.get_logger().info(f"xy_Position: {pos_msg.point.x}, {pos_msg.point.y} | Time: {self.get_clock().now().nanoseconds-self.initial}")
+        # self.get_logger().info(f"xy_Position: {pos_msg.point.x}, {pos_msg.point.y} | Time: {self.get_clock().now().nanoseconds-self.initial}")
         self.pos_pub.publish(pos_msg)
 
         # Publish TF of person position relative to robot

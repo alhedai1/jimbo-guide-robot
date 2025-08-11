@@ -133,10 +133,10 @@ def generate_launch_description():
             output='screen'
         )
 
-    delayed_tracking_node = TimerAction(
-        period=5.0,
-        actions=[tracking_controller_node]
-    )
+    # delayed_tracking_node = TimerAction(
+    #     period=5.0,
+    #     actions=[tracking_controller_node]
+    # )
 
     occupancy_node = Node(
         package='jimbo_navigation',
@@ -248,7 +248,7 @@ def generate_launch_description():
         lidar_launch,
         # realsense_launch,
         emergency_stop_node,
-        # tracking_controller_node,
-        delayed_tracking_node,
-        nav_launch,
+        tracking_controller_node,
+        # delayed_tracking_node,
+        # nav_launch,
     ])
