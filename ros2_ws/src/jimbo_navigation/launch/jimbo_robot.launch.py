@@ -229,45 +229,7 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('enable_rviz'))
     )
 
-    # gazebo_launch = ExecuteProcess(
-    #     cmd=[
-    #         'ign', 'gazebo', '/home/jimbo/jimbo-guide-robot/ros2_ws/src/jimbo_navigation/worlds/world.sdf'
-    #     ],
-    #     output='screen'
-    # )
-    gazebo_server = ExecuteProcess(
-        cmd=['gzserver', '-s', 'libgazebo_ros_init.so',
-             '-s', 'libgazebo_ros_factory.so', '/home/jimbo/jimbo-guide-robot/ros2_ws/src/jimbo_navigation/worlds/empty.world'],
-        output='screen')
-    
-    gazebo_client = ExecuteProcess(
-        cmd=['gzclient'],
-        output='screen')
-
     urdf_path = '/home/jimbo/jimbo-guide-robot/ros2_ws/src/jimbo_navigation/urdf/jimbo_robot.urdf'
-    sdf_path = '/home/jimbo/jimbo-guide-robot/ros2_ws/src/jimbo_navigation/urdf/jimbo_robot_converted.sdf'
-    result = subprocess.run(
-        ['ign', 'sdf', '-p', urdf_path],
-        capture_output=True,
-        text=True
-    )
-    with open(sdf_path, 'w') as sdf_file:
-        sdf_file.write(result.stdout)
-
-    spawn_node = Node(
-        package='gazebo_ros',
-        executable='spawn_entity.py',
-        output='screen',
-        arguments=[
-            '-entity', 'robot',
-            '-file', '/home/jimbo/jimbo-guide-robot/ros2_ws/src/jimbo_navigation/urdf/jimbo_robot.urdf',
-            '-x', '0', '-y', '0', '-z', '0',
-            '-R', '0', '-P', '0', '-Y', '0'])
-
-    delayed_spawn = TimerAction(
-        period=5.0,  # seconds
-        actions=[spawn_node]
-    )
     
     return LaunchDescription([
         use_sim_time_arg,
@@ -276,11 +238,11 @@ def generate_launch_description():
         # enable_realsense_arg,
         robot_description_launch,
         rviz_node,
-        # motor_node,
-        # uwb_launch,
-        # lidar_launch,
+        motor_node,
+        uwb_launch,
+        lidar_launch,
         # realsense_launch,
-        # emergency_stop_node,
-        # tracking_controller_node,
-        # nav_launch,
+        emergency_stop_node,
+        tracking_controller_node,
+        nav_launch,
     ])
