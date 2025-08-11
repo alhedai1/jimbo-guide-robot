@@ -10,7 +10,7 @@ def generate_launch_description():
             output='screen',
             emulate_tty=True,  # 로그 출력 안정화
             parameters=[{
-                'port': '/dev/motor_arduino',
+                'port': '/dev/motor_usb',
                 'baudrate': 115200,
                 'wheel_radius': 0.05,
                 'wheel_base': 0.3
