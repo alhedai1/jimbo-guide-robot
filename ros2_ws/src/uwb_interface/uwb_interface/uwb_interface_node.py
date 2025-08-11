@@ -120,6 +120,8 @@ class UWBInterfaceNode(Node):
         self.ukf_last_time = self.get_clock().now()
         self.record = False
 
+        self.initial = self.get_clock().now().nanoseconds
+
     def request_sensor_data(self):
         for i, tag in enumerate(self.tags):
             if tag is None:
@@ -177,8 +179,8 @@ class UWBInterfaceNode(Node):
 
         
         # moving average w/ 10 readings
-        self.position_buffer.append(ukf_filtered_pos)
-        ukf_filtered_pos = np.mean(self.position_buffer, axis=0)
+        # self.position_buffer.append(ukf_filtered_pos)
+        # ukf_filtered_pos = np.mean(self.position_buffer, axis=0)
         
         pos_msg = PointStamped()
         pos_msg.header.stamp = self.get_clock().now().to_msg()
@@ -186,7 +188,9 @@ class UWBInterfaceNode(Node):
         pos_msg.point.x = ukf_filtered_pos[0]
         pos_msg.point.y = ukf_filtered_pos[1]
         self.pos_history.append((pos_msg.point.x, pos_msg.point.y))
-        self.pos_pub.publish(pos_msg)
+        if self.get_clock().now().nanoseconds - self.initial > 8000000000:
+            # self.get_logger().info(f"Position: {pos_msg.point.x}, {pos_msg.point.y} | Time: {self.get_clock().now().nanoseconds-self.initial}")
+            self.pos_pub.publish(pos_msg)
 
         # Publish TF of person position relative to robot
         transform = TransformStamped()
@@ -195,7 +199,8 @@ class UWBInterfaceNode(Node):
         transform.child_frame_id = 'uwb_person'
         transform.transform.translation.x = pos_msg.point.x
         transform.transform.translation.y = pos_msg.point.y
-        self.tf_broadcaster.sendTransform(transform)
+        if self.get_clock().now().nanoseconds - self.initial > 8000000000:
+            self.tf_broadcaster.sendTransform(transform)
 
     def parse_response(self, line, tag_index):
         if 'DIST' in line:

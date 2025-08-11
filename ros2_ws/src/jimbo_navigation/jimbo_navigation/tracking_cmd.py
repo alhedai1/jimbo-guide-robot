@@ -1,7 +1,6 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool
-  # ...existing code...
 
 class TrackingCmd(Node):
     def __init__(self):
@@ -9,43 +8,44 @@ class TrackingCmd(Node):
         self.publisher_ = self.create_publisher(Bool, 'tracking_cmd', 10)
         self.get_logger().info('Waiting for tracking command ...')
 
-        self.timer = self.create_timer(1, self.timer_callback)
+        # self.timer = self.create_timer(1, self.timer_callback)
 
-    def timer_callback(self):
-        return
+    # def timer_callback(self):
+        # return
 
-    # def run(self):
-    #     import threading
-    #     self.enter_pressed = False
+    def run(self):
+        import threading
+        self.enter_pressed = False
 
-    #     def wait_for_enter():
-    #         while rclpy.ok():
-    #             input('Press Enter to send tracking command (Ctrl+C to exit)...')
-    #             self.enter_pressed = True
+        def wait_for_enter():
+            while rclpy.ok():
+                input('Press Enter to send tracking command (Ctrl+C to exit)...')
+                self.enter_pressed = True
 
-    #     thread = threading.Thread(target=wait_for_enter, daemon=True)
-    #     thread.start()
+        thread = threading.Thread(target=wait_for_enter, daemon=True)
+        thread.start()
 
-    #     while rclpy.ok():
-    #         msg = Bool()
-    #         if self.enter_pressed:
-    #             msg.data = True
-    #             self.enter_pressed = False
-    #             self.get_logger().info('Published TRUE message!')
-    #         else:
-    #             msg.data = False
-    #         self.publisher_.publish(msg)
-    #         rclpy.spin_once(self, timeout_sec=0.1)
+        while rclpy.ok():
+            msg = Bool()
+            if self.enter_pressed:
+                msg.data = True
+                self.enter_pressed = False
+                self.get_logger().info('Published TRUE message!')
+            else:
+                msg.data = False
+            self.publisher_.publish(msg)
+            rclpy.spin_once(self, timeout_sec=0.1)
             
 
 def main(args=None):
     rclpy.init(args=args)
     node = TrackingCmd()
-    # try:
-    #     node.run()
-    # except KeyboardInterrupt:
-    #     pass
-    rclpy.spin(node)
+    try:
+        node.run()
+    except KeyboardInterrupt:
+        pass
+    print("hello")
+    # rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
 

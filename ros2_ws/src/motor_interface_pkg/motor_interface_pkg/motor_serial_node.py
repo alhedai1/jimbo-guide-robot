@@ -12,6 +12,9 @@ import math
 import signal
 import sys
 from pymodbus.client.serial import ModbusSerialClient as ModbusClient
+import tty
+import termios
+import select
 
 class MotorSerialNode(Node):
     def __init__(self):
@@ -66,11 +69,13 @@ class MotorSerialNode(Node):
         # ROS interfaces
         self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
         self.rpm_pub = self.create_publisher(MotorRPM, 'motor_rpm', 10)
-        self.cmd_sub = self.create_subscription(Twist, 'cmd_vel', self.cmd_callback, 10)
+        self.cmd_sub = self.create_subscription(Twist, 'cmd_vel_safe', self.cmd_callback, 10)
         self.rpm_cmd_sub = self.create_subscription(MotorRPM, 'motor_rpm_cmd', self.rpm_callback, 10)
         self.tf_broadcaster = TransformBroadcaster(self)
 
         self.timer = self.create_timer(0.05, self.update_loop)  # 20Hz
+        
+        # self.keyboard_timer = self.create_timer(0.1, self.keyboard_check)
 
         # enable both motors
         self.client.write_register(address=0x200E, value=8, device_id=self.unit_id)
@@ -81,9 +86,8 @@ class MotorSerialNode(Node):
 
     # read Twist command and send to arduino
     def cmd_callback(self, msg: Twist):
-        # self.get_logger().info(f"Received cmd_vel: x = {msg.linear.x}, z = {msg.angular.z}")
-        linear = msg.linear.x
-        angular = msg.angular.z
+        linear = -msg.linear.x
+        angular = -msg.angular.z
 
         # 속도 -> RPM 변환
         v_rpm = linear * 60 / (2 * math.pi * self.wheel_radius)
@@ -115,6 +119,11 @@ class MotorSerialNode(Node):
     # read encoder data from arduino (starts with "E:") and publish
     def update_loop(self):      #cccc
         try:
+            if self.emergency_stop:
+                # write to motors directly
+                self.client.write_register(address=0x2088, value=0 & 0xFFFF, device_id=self.unit_id)
+                self.client.write_register(address=0x2089, value=0 & 0xFFFF, device_id=self.unit_id)
+
             # line = self.ser.readline().decode().strip()
             resp1 = self.client.read_holding_registers(address=0x20AB, count=1, device_id=self.unit_id)
             resp2 = self.client.read_holding_registers(address=0x20AC, count=1, device_id=self.unit_id)
@@ -279,6 +288,22 @@ class MotorSerialNode(Node):
         msg.left_rpm = left_rpm
         msg.right_rpm = right_rpm
         self.rpm_pub.publish(msg)
+
+    def keyboard_check(self):
+        key = self.get_key_nonblocking()
+        self.get_logger().info(f"--------------------------{key}---------------------------.")
+        if key == 's':  # Emergency stop key
+            self.emergency_stop = True
+            self.get_logger().info("Emergency stop activated! Sending 0 RPM.")
+        elif key == 'r':  # Resume
+            self.emergency_stop = False
+            self.get_logger().info("Resuming normal operation.")
+
+    def get_key_nonblocking(self):
+        if select.select([sys.stdin], [], [], 0)[0]:
+            self.get_logger().info("--------------------------test---------------------------.")
+            return sys.stdin.read(1)
+        return None
 
     def handle_sigint(self, signum, frame):
         try:

@@ -8,6 +8,7 @@ from sensor_msgs.msg import LaserScan
 import math
 import numpy as np
 from tf2_ros import Buffer, TransformListener, TransformException
+from rclpy.time import Time
 
 
 class TrackingController(Node):
@@ -18,6 +19,8 @@ class TrackingController(Node):
         self.uwb_target = None
         self.start_tracking = False
         self.tracking = False
+
+        self.intial = self.get_clock().now()
 
         self.uwb_sub = self.create_subscription(PointStamped, '/uwb_filtered_position', self.uwb_callback, 10)
         self.tracking_sub = self.create_subscription(Bool, '/tracking', self.tracking_callback, 10)
@@ -45,8 +48,8 @@ class TrackingController(Node):
         goal_transformed = self.tf_buffer.transform(goal, 'odom', timeout=rclpy.duration.Duration(seconds=1.0))
 
         dist = math.hypot(msg.point.x, msg.point.y)
-        if dist > 2.0 and not self.tracking:
-            self.start_tracking = True
+        # if dist > 2.0 and not self.tracking:
+        #     self.start_tracking = True
         
         if dist < 1.0 and self.tracking:
             self.tracking = False
@@ -55,7 +58,7 @@ class TrackingController(Node):
             self.start_tracking = False
             self.tracking = True
             self.goal_pub.publish(goal_transformed)
-            self.get_logger().info(f"Sent initial goal to nav2")
+            # self.get_logger().info(f"Sent initial goal to nav2")
         elif self.tracking:
             self.goal_update_pub.publish(goal_transformed)
             # self.get_logger().info(f"Sent updated goal to nav2")
