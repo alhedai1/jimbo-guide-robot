@@ -22,6 +22,14 @@ import csv
 
 # tag positions: (+x is forward, +y is left)
 tag_positions = [
+    # (-0.30,  0.465),  # Front Left
+    # ( 0.30,  0.465),  # Front Right
+    # (-0.30, -0.465),  # Back Left
+    # ( 0.30, -0.465),  # Back Right
+    # ( 0.465,  0.30),  # Front Left
+    # ( 0.465, -0.30),  # Front Right
+    # (-0.465,  0.30),  # Back Left
+    # (-0.465, -0.30),  # Back Right
     ( 0.2325,  0.29),  # Front Left
     ( 0.2325, -0.29),  # Front Right
     (-0.2325,  0.315),  # Back Left
@@ -46,6 +54,7 @@ class UWBInterfaceNode(Node):
                 self.get_logger().info(f"Connected to UWB device {i} on {port}")
             except Exception as e:
                 self.get_logger().error(f"Failed to connect to {port}: {e}")
+                # Create a dummy serial object to maintain indexing
                 self.tags.append(None)
         time.sleep(0.5)
 
@@ -130,30 +139,20 @@ class UWBInterfaceNode(Node):
         self.dist_pub.publish(dist_msg)
         self.dist_history.append(self.distances)
 
-        # # !! skip until all distances are valid
-        # for dist in self.distances:
-        #     if dist <= 0.0:
-        #         return
+        # !! skip until all distances are valid
+        for dist in self.distances:
+            if dist <= 0.0:
+                return
 
-        # # Estimate position (multilateration, no filtering)
-        # unfiltered_pos = self.estimate_tag_position(tag_positions, self.distances)
-        # # self.get_logger().info(f"unfiltered_pos: {unfiltered_pos} | Time: {self.get_clock().now().nanoseconds-self.initial}")
+        # Estimate position (multilateration, no filtering)
+        unfiltered_pos = self.estimate_tag_position(tag_positions, self.distances)
+        # self.get_logger().info(f"unfiltered_pos: {unfiltered_pos} | Time: {self.get_clock().now().nanoseconds-self.initial}")
 
-        # use valid distances only
-        valid_anchors = []
-        valid_distances = []
-        for anchor, dist in zip(tag_positions, self.distances):
-            if dist > 0.0:
-                valid_anchors.append(anchor)
-                valid_distances.append(dist)
-        if len(valid_distances) < 3:
-            return
-        
         # Estimate target position from 4 distances using UKF
         now = self.get_clock().now()
         dt = now - self.ukf_last_time
         self.ukf_last_time = now
-        self.ukf_tracker.update(valid_anchors, valid_distances, dt)
+        self.ukf_tracker.update(self.distances, dt)
         ukf_filtered_pos = self.ukf_tracker.get_state()[:2]
         
         # moving average w/ 10 readings
@@ -206,6 +205,35 @@ class UWBInterfaceNode(Node):
             return result.x
         # else:
         #     return [0.0, 0.0]
+
+    def kalman_update(self, z):
+        now = self.get_clock().now()
+        dt = (now - self.kalman_last_time).nanoseconds * 1e-9
+        if dt <= 0 or dt > 1.0:
+            dt = 0.1  # fallback for first call or large jumps
+        self.kalman_last_time = now
+
+        if not self.kalman_initialized:
+            self.kalman_state[:2] = z
+            self.kalman_initialized = True
+            return self.kalman_state[:2]
+
+        # Update F for dt
+        self.kalman_F[0, 2] = dt
+        self.kalman_F[1, 3] = dt
+
+        # Predict
+        self.kalman_state = self.kalman_F @ self.kalman_state
+        self.kalman_P = self.kalman_F @ self.kalman_P @ self.kalman_F.T + self.kalman_Q
+
+        # Update
+        y = z - self.kalman_H @ self.kalman_state
+        S = self.kalman_H @ self.kalman_P @ self.kalman_H.T + self.kalman_R
+        K = self.kalman_P @ self.kalman_H.T @ np.linalg.inv(S)
+        self.kalman_state = self.kalman_state + K @ y
+        self.kalman_P = (np.eye(4) - K @ self.kalman_H) @ self.kalman_P
+
+        return self.kalman_state[:2]
     
     def compute_position_stats(self):
         if len(self.pos_history) < 10:
