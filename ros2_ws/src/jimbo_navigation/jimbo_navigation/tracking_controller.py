@@ -44,12 +44,12 @@ class TrackingController(Node):
         goal.pose.position = msg.point
         goal_transformed = self.tf_buffer.transform(goal, 'odom', timeout=rclpy.duration.Duration(seconds=1.0))
 
-        dist = math.hypot(msg.point.x, msg.point.y)
-        if dist > 2.0 and not self.tracking:
-            self.start_tracking = True
+        # dist = math.hypot(msg.point.x, msg.point.y)
+        # if dist > 2.0 and not self.tracking:
+        #     self.start_tracking = True
         
-        if dist < 1.0 and self.tracking:
-            self.tracking = False
+        # if dist < 1.0 and self.tracking:
+        #     self.tracking = False
 
         if self.start_tracking:
             self.start_tracking = False
@@ -58,7 +58,7 @@ class TrackingController(Node):
             self.get_logger().info(f"Sent initial goal to nav2")
         elif self.tracking:
             self.goal_update_pub.publish(goal_transformed)
-            self.get_logger().info(f"Sent updated goal to nav2")
+            # self.get_logger().info(f"Sent updated goal to nav2")
 
 def main(args=None):
     rclpy.init(args=args)
@@ -69,3 +69,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
