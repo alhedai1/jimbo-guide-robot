@@ -132,4 +132,5 @@ def generate_launch_description():
         lidar_tf_node,
         # odom_tf_node,
         # map_tf_node
+        uwb_tf_node
     ]) 
