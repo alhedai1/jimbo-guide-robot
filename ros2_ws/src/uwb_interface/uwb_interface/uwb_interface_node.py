@@ -151,11 +151,13 @@ class UWBInterfaceNode(Node):
         # Publish all distances
         dist_msg = Float32MultiArray()
         dist_msg.data = self.distances
+        self.get_logger().info(f"Distances: {self.distances} | Time: {self.get_clock().now().nanoseconds-self.initial}")
         self.dist_pub.publish(dist_msg)
         self.dist_history.append(self.distances)
 
         # Estimate position (multilateration, no filtering)
         unfiltered_pos = self.estimate_tag_position(tag_positions, self.distances)
+        self.get_logger().info(f"unfiltered_pos: {unfiltered_pos} | Time: {self.get_clock().now().nanoseconds-self.initial}")
 
         # Estimate target position from 4 distances using ukf
         now = self.get_clock().now()
@@ -163,6 +165,7 @@ class UWBInterfaceNode(Node):
         self.ukf_last_time = now
         self.ukf_tracker.update(self.distances, dt)
         ukf_filtered_pos = self.ukf_tracker.get_state()[:2]
+
         
         # # if self.user_position is not None:
         # #     dist = np.linalg.norm(np.array(pos) - np.array(self.user_position))
@@ -185,12 +188,13 @@ class UWBInterfaceNode(Node):
         pos_msg = PointStamped()
         pos_msg.header.stamp = self.get_clock().now().to_msg()
         pos_msg.header.frame_id = 'uwb_base'
+        self.get_logger().info(f"ukf_Position: {ukf_filtered_pos[0]}, {ukf_filtered_pos[1]} | Time: {self.get_clock().now().nanoseconds-self.initial}")
         pos_msg.point.x = ukf_filtered_pos[0]
         pos_msg.point.y = ukf_filtered_pos[1]
         self.pos_history.append((pos_msg.point.x, pos_msg.point.y))
-        if self.get_clock().now().nanoseconds - self.initial > 8000000000:
-            # self.get_logger().info(f"Position: {pos_msg.point.x}, {pos_msg.point.y} | Time: {self.get_clock().now().nanoseconds-self.initial}")
-            self.pos_pub.publish(pos_msg)
+        # if self.get_clock().now().nanoseconds - self.initial > 8000000000:
+        self.get_logger().info(f"xy_Position: {pos_msg.point.x}, {pos_msg.point.y} | Time: {self.get_clock().now().nanoseconds-self.initial}")
+        self.pos_pub.publish(pos_msg)
 
         # Publish TF of person position relative to robot
         transform = TransformStamped()
@@ -199,8 +203,8 @@ class UWBInterfaceNode(Node):
         transform.child_frame_id = 'uwb_person'
         transform.transform.translation.x = pos_msg.point.x
         transform.transform.translation.y = pos_msg.point.y
-        if self.get_clock().now().nanoseconds - self.initial > 8000000000:
-            self.tf_broadcaster.sendTransform(transform)
+        # if self.get_clock().now().nanoseconds - self.initial > 8000000000:
+        self.tf_broadcaster.sendTransform(transform)
 
     def parse_response(self, line, tag_index):
         if 'DIST' in line:

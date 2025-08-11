@@ -86,8 +86,8 @@ class MotorSerialNode(Node):
 
     # read Twist command and send to arduino
     def cmd_callback(self, msg: Twist):
-        linear = -msg.linear.x
-        angular = -msg.angular.z
+        linear = msg.linear.x
+        angular = msg.angular.z
 
         # 속도 -> RPM 변환
         v_rpm = linear * 60 / (2 * math.pi * self.wheel_radius)
@@ -98,8 +98,8 @@ class MotorSerialNode(Node):
         right_rpm = (v_rpm + a_rpm / 2)
 
         # write to motors directly
-        self.client.write_register(address=0x2088, value=round(left_rpm) & 0xFFFF, device_id=self.unit_id)
-        self.client.write_register(address=0x2089, value=round(right_rpm) & 0xFFFF, device_id=self.unit_id)
+        self.client.write_register(address=0x2088, value=round(-left_rpm) & 0xFFFF, device_id=self.unit_id)
+        self.client.write_register(address=0x2089, value=round(-right_rpm) & 0xFFFF, device_id=self.unit_id)
 
         # self.target_rpm_left = left_rpm
         # self.target_rpm_right = right_rpm
@@ -119,10 +119,10 @@ class MotorSerialNode(Node):
     # read encoder data from arduino (starts with "E:") and publish
     def update_loop(self):      #cccc
         try:
-            if self.emergency_stop:
-                # write to motors directly
-                self.client.write_register(address=0x2088, value=0 & 0xFFFF, device_id=self.unit_id)
-                self.client.write_register(address=0x2089, value=0 & 0xFFFF, device_id=self.unit_id)
+            # if self.emergency_stop:
+            #     # write to motors directly
+            #     self.client.write_register(address=0x2088, value=0 & 0xFFFF, device_id=self.unit_id)
+            #     self.client.write_register(address=0x2089, value=0 & 0xFFFF, device_id=self.unit_id)
 
             # line = self.ser.readline().decode().strip()
             resp1 = self.client.read_holding_registers(address=0x20AB, count=1, device_id=self.unit_id)
@@ -135,8 +135,8 @@ class MotorSerialNode(Node):
                 actual_rpm_left -= 65536
             if actual_rpm_right > 32767:
                 actual_rpm_right -= 65536
-            actual_rpm_left = (actual_rpm_left * 0.1)
-            actual_rpm_right = (actual_rpm_right * 0.1)
+            actual_rpm_left = -(actual_rpm_left * 0.1)
+            actual_rpm_right = -(actual_rpm_right * 0.1)
             # self.get_logger().info(f"actual left: {actual_rpm_left}, actual right: {actual_rpm_right}")
             
             # error_left = self.target_rpm_left - actual_rpm_left

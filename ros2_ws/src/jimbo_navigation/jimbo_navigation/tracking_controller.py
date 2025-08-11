@@ -48,8 +48,8 @@ class TrackingController(Node):
         goal_transformed = self.tf_buffer.transform(goal, 'odom', timeout=rclpy.duration.Duration(seconds=1.0))
 
         dist = math.hypot(msg.point.x, msg.point.y)
-        # if dist > 2.0 and not self.tracking:
-        #     self.start_tracking = True
+        if dist > 2.0 and not self.tracking:
+            self.start_tracking = True
         
         if dist < 1.0 and self.tracking:
             self.tracking = False
