@@ -240,7 +240,7 @@ def generate_launch_description():
         executable='keyboard_publisher',
         name='keyboard_publisher',
         output='screen',
-        launch_prefix='gnome-terminal --command'
+        prefix='gnome-terminal --'
     )
 
     urdf_path = '/home/jimbo/jimbo-guide-robot/ros2_ws/src/jimbo_navigation/urdf/jimbo_robot.urdf'
