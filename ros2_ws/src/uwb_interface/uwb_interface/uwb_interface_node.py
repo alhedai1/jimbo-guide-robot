@@ -123,7 +123,7 @@ class UWBInterfaceNode(Node):
                 except:
                     pass
         
-        # Publish 4 distances
+        # Publish 4 distances (for debugging)
         dist_msg = Float32MultiArray()
         dist_msg.data = self.distances
         # self.get_logger().info(f"Distances: {self.distances} | Time: {self.get_clock().now().nanoseconds-self.initial}")
@@ -140,11 +140,11 @@ class UWBInterfaceNode(Node):
         # # self.get_logger().info(f"unfiltered_pos: {unfiltered_pos} | Time: {self.get_clock().now().nanoseconds-self.initial}")
 
         # use valid distances only
-        valid_anchors = []
+        valid_tags = []
         valid_distances = []
-        for anchor, dist in zip(tag_positions, self.distances):
+        for tag, dist in zip(tag_positions, self.distances):
             if dist > 0.0:
-                valid_anchors.append(anchor)
+                valid_tags.append(tag)
                 valid_distances.append(dist)
         if len(valid_distances) < 3:
             return
@@ -153,7 +153,7 @@ class UWBInterfaceNode(Node):
         now = self.get_clock().now()
         dt = now - self.ukf_last_time
         self.ukf_last_time = now
-        self.ukf_tracker.update(valid_anchors, valid_distances, dt)
+        self.ukf_tracker.update(valid_tags, valid_distances, dt)
         ukf_filtered_pos = self.ukf_tracker.get_state()[:2]
         
         # moving average w/ 10 readings
