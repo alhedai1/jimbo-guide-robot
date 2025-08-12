@@ -23,7 +23,7 @@ class TrackingController(Node):
         self.intial = self.get_clock().now()
 
         self.uwb_sub = self.create_subscription(PointStamped, '/uwb_filtered_position', self.uwb_callback, 10)
-        self.tracking_sub = self.create_subscription(Bool, '/tracking', self.tracking_callback, 10)
+        self.tracking_sub = self.create_subscription(Bool, '/start_tracking', self.tracking_callback, 10)
         self.goal_pub = self.create_publisher(PoseStamped, '/goal_pose', 10)
         self.goal_update_pub = self.create_publisher(PoseStamped, '/goal_update', 10)
 

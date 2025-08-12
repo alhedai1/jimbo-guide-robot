@@ -11,7 +11,7 @@ class KeyboardPublisher(Node):
     def __init__(self):
         super().__init__('keyboard_publisher')
         self.emergency_pub = self.create_publisher(Bool, '/emergency_stop', 10)
-        self.tracking_pub = self.create_publisher(Bool, '/tracking', 10)
+        self.tracking_pub = self.create_publisher(Bool, '/start_tracking', 10)
         self.get_logger().info("Press 't' to start Start Tracking.\nPress 'e' to toggle Emergency Stop ON/OFF.\nPress 'q' to quit.")
 
         self.emergency = False
