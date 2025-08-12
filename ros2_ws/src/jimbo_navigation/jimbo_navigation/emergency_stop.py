@@ -8,7 +8,7 @@ class EmergencyStop(Node):
         super().__init__('emergency_stop')
 
         self.emergency_sub = self.create_subscription(Bool, '/emergency_stop', self.emergency_callback, 10)
-        self.cmd_sub = self.create_subscription(Twist, '/cmd_vel_smoothed', self.cmd_callback, 10) # cmd commands from nav2 (velocity_smoother)
+        self.cmd_sub = self.create_subscription(Twist, '/cmd_vel_smoothed', self.cmd_callback, 10) # cmd commands from nav2 (velocity_smoother, change to cmd_vel_nav to read from controller_server)
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel_safe', 10)
 
         self.emergency = False
