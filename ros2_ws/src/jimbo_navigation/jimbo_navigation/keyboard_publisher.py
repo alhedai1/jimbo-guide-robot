@@ -10,8 +10,9 @@ import tty
 class KeyboardPublisher(Node):
     def __init__(self):
         super().__init__('keyboard_publisher')
-        self.pub = self.create_publisher(Bool, '/emergency_stop', 10)
-        self.get_logger().info("Press 'e' to toggle Emergency Stop ON/OFF. Press 'q' to quit.")
+        self.emergency_pub = self.create_publisher(Bool, '/emergency_stop', 10)
+        self.tracking_pub = self.create_publisher(Bool, '/tracking', 10)
+        self.get_logger().info("Press 't' to start Start Tracking.\nPress 'e' to toggle Emergency Stop ON/OFF.\nPress 'q' to quit.")
 
         self.emergency = False
         self.run()
@@ -33,9 +34,14 @@ class KeyboardPublisher(Node):
                 self.emergency = not self.emergency
                 msg = Bool()
                 msg.data = self.emergency
-                self.pub.publish(msg)
+                self.emergency_pub.publish(msg)
                 status = "ON" if self.emergency else "OFF"
                 self.get_logger().info(f"Emergency Stop toggled: {status}")
+            elif key == 't':
+                msg = Bool()
+                msg.data = True
+                self.tracking_pub.publish(msg)
+                self.get_logger().info(f"Start tracking triggered")
             elif key == 'q':
                 self.get_logger().info("Quitting keyboard emergency publisher.")
                 break
