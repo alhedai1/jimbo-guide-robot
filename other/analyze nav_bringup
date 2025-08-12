@@ -1,9 +1,0 @@
-goal: publish to cmd_vel (motor serial node reads Twist commands from cmd_vel)
-
-behaviour_server:
-	pubs to cmd_vel
-	subs to local_costmap/costmap_raw, local_costmap/published_footprint
-
-local_costmap/local_costmap:
-	pubs to local_costmap/costmap_raw, local_costmap/published_footprint
-	subs to scan
