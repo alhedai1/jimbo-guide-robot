@@ -250,5 +250,5 @@ def generate_launch_description():
         emergency_stop_node,
         tracking_controller_node,
         # delayed_tracking_node,
-        # nav_launch,
+        nav_launch,
     ])
