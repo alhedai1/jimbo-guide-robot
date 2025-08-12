@@ -234,6 +234,15 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('enable_rviz'))
     )
 
+    # runs in separate terminal (press 'e' to toggle emergency stop, press 'q' to kill node)
+    keyboard_publisher_node = Node(
+        package='jimbo_navigation',
+        executable='keyboard_publisher',
+        name='keyboard_publisher',
+        output='screen',
+        launch_prefix='gnome-terminal --command'
+    )
+
     urdf_path = '/home/jimbo/jimbo-guide-robot/ros2_ws/src/jimbo_navigation/urdf/jimbo_robot.urdf'
     
     return LaunchDescription([
@@ -246,9 +255,9 @@ def generate_launch_description():
         motor_node,
         uwb_launch,
         lidar_launch,
+        keyboard_publisher_node,
         # realsense_launch,
         emergency_stop_node,
         tracking_controller_node,
-        # delayed_tracking_node,
         nav_launch,
     ])

@@ -51,7 +51,8 @@ class TrackingController(Node):
         if dist > 2.0 and not self.tracking:
             self.start_tracking = True
         
-        if dist < 1.0 and self.tracking:
+        # extra (goal is always 1 m away from target based on BT, so nav2 will stop anyways)
+        if (dist < 1.0 and self.tracking):
             self.tracking = False
 
         if self.start_tracking:
