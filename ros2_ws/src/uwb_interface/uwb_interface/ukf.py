@@ -36,7 +36,7 @@ class UWB_UKF:
             self.ukf.dt = dt
         self.valid_tags = np.array(tags)
 
-        # Adjust R to match the number of measurements
+        # adjust R to match the number of measurements
         self.ukf.R = np.diag([0.05] * len(distances))
         self.ukf._dim_z = len(self.valid_tags)
 
