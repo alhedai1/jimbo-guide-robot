@@ -164,7 +164,7 @@ class UWBInterfaceNode(Node):
         pos_msg.header.stamp = self.get_clock().now().to_msg()
         pos_msg.header.frame_id = 'uwb_base'
         # self.get_logger().info(f"ukf_Position: {ukf_filtered_pos[0]}, {ukf_filtered_pos[1]} | Time: {self.get_clock().now().nanoseconds-self.initial}")
-        pos_msg.point.x = ukf_filtered_pos[0]
+        pos_msg.point.x = ukf_filtered_pos[0] + 0.3925
         pos_msg.point.y = ukf_filtered_pos[1]
         self.pos_history.append((pos_msg.point.x, pos_msg.point.y))
         # if self.get_clock().now().nanoseconds - self.initial > 8000000000:
