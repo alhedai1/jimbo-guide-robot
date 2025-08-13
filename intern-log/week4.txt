@@ -1,0 +1,27 @@
+
+## July 14
+# Log
+ - local costmap displayed and obstacles detected
+ - no need to use map.yaml file, only dummy map -> odom frame
+ - global costmap not needed, ignore errors related to it
+ - lidar detections reversed --> set "reversion" & "inverted" params to True in yaml (X4)
+ - lidar connection errors sometimes. might've been due to port set to /dev/ttyUSB0 not /dev/lidar
+ - nav2 params yaml syntax error: use "" around [] for footprint coordinates
+ - robot tracks user on rviz, but needs tuning
+
+
+## July 15
+# Log
+ - try using speed filter in costmap
+
+
+## July 16
+# Plan
+ - get robot to move to desired goal point on rviz
+ - make robot track moving goal point on rviz
+
+
+## July 17, 18
+# Log
+ - tried basic DWA-like algorithm to move robot from starting position to goal position
+ - implemented B-spline optimization human following controller (BSO-HFC) node -> still testing

@@ -1,0 +1,52 @@
+
+## June 30
+# Plan
+ - test uwb sensors
+ - look into navigation/slam with lidar
+ - 
+
+# Done
+ - after connecting cable to uwb, must send \r\r
+ - after that, only send \r to get last output
+ - problem with tag uwb
+ - lec command to start ranging -> reset command to stop
+ - looked into slam/nav. use slam to make map -> nav2 stack to navigate
+
+
+## July 1
+# Plan
+ - set up ros2 node to integrate uwb tag and anchor (expand to 4 anchors)
+ - look into navigation/slam with lidar
+
+# Done
+ - wrote ros2 node for uwb sensor integration
+ - connecting uwb sensor: ttyACM*. * is in order: 0, 1, 2, 3.
+ - issue: Up squared sbc keeps restarting. probably power issue. might be too many usb devices
+
+
+## July 2
+# Plan
+ - testing uwb sensors
+
+# Done
+ - set up uwb sensors. all 4 on 1 usb hub causes crashes. renamed ttyACM* to fixed names based on each sensor's ATTRS{serial}
+ - integrated 4 robot uwb (tags) to get position of person uwb (anchor), filtered with kalman
+ - can only read uwb data from tags, not anchors
+
+
+## July 3
+# Plan
+ - integrate motor control and uwb sensors
+ - slam using lidar
+
+# Done
+ - integrating motor control and uwb sensors
+ - issues: position tracking is slow/laggy
+ - motor issues: don't stop when ctrl+c, doesn't respond well to uwb (maybe not quite in sync)
+
+
+## July 4
+# Plan
+ - fully integrate motor control and uwb sensors
+ - accurate uwb position tracking
+ - accurate motor rotation based on uwb tracking

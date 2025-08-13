@@ -1,0 +1,40 @@
+
+
+## Aug 4
+# Done
+ - attempted navigation with nav2 again
+ - robot moves well from start to goal
+ - use rolling global & local costmaps, cant set goals outside global costmap
+ - use custom behaviour tree
+
+# Issues:
+ - can't update goal by publishing to goal_updated
+
+## Aug 5
+# Done
+ - nav2 tracking by publishing to goal_update works
+ - posestamped msg published to goal_update must have valid timestamp
+ - initial goal must be published to goal_pose, while navigating to goal_pose, can update goal by publishing to goal_update
+
+
+## Aug 6
+# Done
+ - tested ukf filter as alternative to basic kalman filter
+ - using it with moving average filter (10 samples)
+ - needs better tuning for Q and R (shouldn't need moving average filter)
+
+
+## Aug 7
+# Plan
+ - test actual robot
+# Done
+ - could not test robot due to power issue
+ - modified urdf for actual robot
+
+
+## Aug 8
+# Plan
+ - discuss code with Mr. Lee
+ - try to integrate depth camera (nav2 voxel layer)
+# Done
+ - 

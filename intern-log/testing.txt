@@ -1,0 +1,5 @@
+
+1. test odometry and cmd_vel (send manual commands)
+2. test lidar and uwb sensors
+3. test nav2 with simple fixed goal
+4. test following uwb target

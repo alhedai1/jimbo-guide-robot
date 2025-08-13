@@ -1,0 +1,7 @@
+
+## Aug 12
+ - 
+
+## Aug 13
+ - check default navigate_to_pose BT, does it activate whenever goal is sent to goal_pose
+ - test actual robot motion

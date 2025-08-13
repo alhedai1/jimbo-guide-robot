@@ -1,0 +1,34 @@
+
+## July 21
+# Plan
+ - test BSO-HFC node
+ - test if robot can move from starting position to goal position, while avoiding obstacle
+
+# Done
+ - robot moves to desired goal position using bso-hfc
+ - not sure about avoiding obstacles yet
+ - need to figure out how to test obstacle avoidance while tracking (given fixed testbed)
+
+
+## July 22
+ - wrote A* planner node to compute obstacle-free path
+ - integrated with b-spline controller to optimize initial A* path
+
+
+## July 23
+# Plan
+ - simulate on gazebo. test algorithm with real-time obstacle avoidance (actual lidar is fixed to testbed)
+ - simulate following a person (fake uwb data)
+
+
+## July 24
+# Issues
+ - uwb connections often suddenly change, while running (eg: uwb_front_left changes from ttyACM5 to ttyACM0)
+ - measurement then freezes
+ - A* planned trajectory doesn't clear obstacles enough, even with B-spline optimization
+
+## July 25
+# Plan
+ - finish local mapping w/ occupancy map
+ - finish path planning w/ A* and B-spline
+ - tune controller to accurately follow obstacle-free trajectory
