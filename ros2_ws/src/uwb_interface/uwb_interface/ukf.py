@@ -15,7 +15,7 @@ class UWB_UKF:
         self.ukf.x = np.array([0, 0, 0, 0])
         
         self.ukf.P *= 0.5 # initial uncertainty
-        self.ukf.R = np.diag([0.015] * len(tag_positions)) # measurement noise
+        self.ukf.R = np.diag([0.02] * len(tag_positions)) # measurement noise
         self.ukf.Q = np.diag([0.001, 0.001, 0.1, 0.1]) # process noise [x, y, vx, vy]
 
         self.valid_tags = self.tags
