@@ -157,8 +157,8 @@ class UWBInterfaceNode(Node):
         ukf_filtered_pos = self.ukf_tracker.get_state()[:2]
         
         # moving average w/ 10 readings
-        # self.position_buffer.append(ukf_filtered_pos)
-        # ukf_filtered_pos = np.mean(self.position_buffer, axis=0)
+        self.position_buffer.append(ukf_filtered_pos)
+        ukf_filtered_pos = np.mean(self.position_buffer, axis=0)
         
         pos_msg = PointStamped()
         pos_msg.header.stamp = self.get_clock().now().to_msg()
