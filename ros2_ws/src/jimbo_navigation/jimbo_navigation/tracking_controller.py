@@ -60,9 +60,9 @@ class TrackingController(Node):
             self.tracking = True
             self.goal_pub.publish(goal_transformed)
             # self.get_logger().info(f"Sent initial goal to nav2")
-        elif self.tracking:
-            self.goal_update_pub.publish(goal_transformed)
-            # self.get_logger().info(f"Sent updated goal to nav2")
+        # elif self.tracking:
+        #     self.goal_update_pub.publish(goal_transformed)
+        #     # self.get_logger().info(f"Sent updated goal to nav2")
 
 def main(args=None):
     rclpy.init(args=args)
