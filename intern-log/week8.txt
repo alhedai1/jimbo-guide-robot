@@ -7,3 +7,4 @@
  - test actual robot motion
  - check follow_point BT (without KeepRunningUntilFailure, when FollowPath succeeds, PipelineSequence should succeed and halt)
     --> check when testing actual robot motion
+ - uwb target position is unstable, robot oscillates left and right --> try using moving average filter + ukf
